@@ -48,7 +48,7 @@ export function Status({ node }: { node: Node }) {
       variant="outline"
       className={cn("tnum shrink-0 gap-1.5 font-normal", !node.online && "text-muted-foreground")}
     >
-      <span className={cn("size-1.5 rounded-full", node.online ? "bg-foreground" : "bg-muted-foreground/40")} />
+      <span className={cn("size-1.5 rounded-full", node.online ? "bg-online" : "bg-muted-foreground/40")} />
       {label.trim()}
     </Badge>
   )

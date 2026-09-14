@@ -41,6 +41,9 @@
      darkens as it fills. */
   --ok: oklch(0.62 0 0);
   --warn: oklch(0.44 0 0);
+  /* Online status breaks the greyscale rule on purpose: the dot must read as
+     "live" at a glance, distinct from both offline and never-connected. */
+  --online: oklch(0.72 0.19 142);
 }
 
 .dark {
@@ -70,6 +73,8 @@
   /* Inverted against the dark ground: the fuller the bar, the brighter. */
   --ok: oklch(0.62 0 0);
   --warn: oklch(0.79 0 0);
+  /* Dark ground eats saturation, so nudge the chroma up to keep "live" legible. */
+  --online: oklch(0.78 0.21 142);
 }
 
 @theme inline {
@@ -102,6 +107,7 @@
   --color-chart-5: var(--chart-5);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
+  --color-online: var(--online);
 }
 
 @layer base {
