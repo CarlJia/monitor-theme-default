@@ -51,6 +51,14 @@ npm run dev
 
 将目录复制到 hub 的 `--themes` 位置，在后台「主题」页切换，无需重启。
 
+本地构建并打包：
+
+```bash
+npm run build && npm run package-theme
+```
+
+产出 `theme.tar.gz` 与 `theme.tar.gz.sha256`，布局与 tag release 里的产物一致。
+
 ## 主题契约
 
 主题是纯静态 SPA，只能依赖下列同源接口：

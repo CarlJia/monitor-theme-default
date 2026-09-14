@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# release artefacts — produced by scripts/package-theme.mjs and
+# .github/workflows/release.yml, never hand-edited
+theme.tar.gz
+theme.tar.gz.sha256
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

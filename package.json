@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "node src/lib/format.test.ts && node src/lib/api.test.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "package-theme": "node scripts/package-theme.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -31,6 +32,7 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "oxlint": "^1.79.0",
+    "tar": "^7.4.3",
     "typescript": "~6.0.2",
     "vite": "^8.2.2"
   }
