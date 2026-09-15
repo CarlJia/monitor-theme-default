@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Meter } from "@/components/Meter"
 import type { Node } from "@/lib/api"
-import { bytes, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
+import { bytes, countryToFlag, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 /** Which direction the plan meters, matching the node's traffic_mode. */
@@ -54,12 +54,18 @@ export function Status({ node }: { node: Node }) {
   )
 }
 
-/** Where the machine is, in the same shape as the badge next to it. */
+/** Where the machine is. Default render is the flag emoji so a row of badges
+ *  reads at a glance; the native tooltip on hover shows the country letters for
+ *  anyone who needs the code spelled out. */
 export function Country({ node }: { node: Node }) {
   if (!node.country) return null
   return (
-    <Badge variant="outline" className="shrink-0 font-normal text-muted-foreground">
-      {node.country}
+    <Badge
+      variant="outline"
+      className="shrink-0 font-normal text-muted-foreground"
+      title={node.country}
+    >
+      {countryToFlag(node.country)}
     </Badge>
   )
 }
