@@ -17,7 +17,7 @@ const BUBBLE_CLASS = {
   none: "map-bubble-none",
 } as const
 
-// 底图特征一次展开：切回地图视图（含严格模式双挂载）不再重算 241 条。
+// 底图特征一次展开：切回地图视图（含严格模式双挂载）不再重算两百多条。
 // 50m 高分辨率轮廓 + 经纬网，全部内置，零外部请求（R11 同源约束）。
 const LAND_FEATURES = [...countriesByCode.values()].flatMap((e) => (e.feature ? [e.feature] : []))
 const GRATICULE = geoGraticule10()

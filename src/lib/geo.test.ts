@@ -36,8 +36,8 @@ for (const [code, entry] of countriesByCode) {
   )
 }
 
-// 110m 数据全集规模：掉了一半国家说明数字码表或转换断了。
-assert.ok(countriesByCode.size >= 170, `应至少 170 国，实际 ${countriesByCode.size}`)
+// 50m 数据全集规模：掉了几十个国家说明数字码表或转换断了。
+assert.ok(countriesByCode.size >= 230, `应至少 230 国，实际 ${countriesByCode.size}`)
 
 // 边缘属地：50m 收录 SG/HK 等常见 VPS 落点（有轮廓）；个别更小的属地
 // （如 GF）无轮廓但必须有回退坐标，气泡不丢。
