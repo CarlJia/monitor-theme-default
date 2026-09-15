@@ -120,3 +120,18 @@
 
 /* Tabular figures keep live numbers from shifting as they update. */
 .tnum { font-variant-numeric: tabular-nums; }
+
+/* Leaflet 地图（无瓦片，底图为内置 GeoJSON）：配色全部走主题变量，CSS 规则
+   覆盖 Leaflet 写在 SVG 上的呈现属性，明暗切换即时生效、无需重绘。 */
+.leaflet-container { background: var(--background); font: inherit; }
+.map-land { stroke: var(--border); fill: var(--muted); }
+.map-bubble-all { stroke: var(--background); fill: var(--online); }
+.map-bubble-partial { stroke: var(--background); fill: var(--foreground); }
+.map-bubble-none { stroke: var(--muted-foreground); fill: transparent; }
+.leaflet-tooltip {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+.leaflet-tooltip-top::before { border-top-color: var(--border); }

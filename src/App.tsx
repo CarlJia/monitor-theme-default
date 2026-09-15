@@ -21,6 +21,8 @@ const NodeDetail = lazy(loadDetail)
 // paint, so the default card view keeps its current weight (R11).
 const loadTable = () => import("@/components/NodeTable").then((m) => ({ default: m.NodeTable }))
 const NodeTable = lazy(loadTable)
+const loadMap = () => import("@/components/WorldMap").then((m) => ({ default: m.WorldMap }))
+const WorldMap = lazy(loadMap)
 
 // `/node/{id}` is a real page: it survives a reload, can be linked to, and back
 // leaves the detail view rather than the site. The hub serves index.html for any
@@ -236,7 +238,9 @@ export default function App() {
                 <NodeTable nodes={visible} onOpen={go} />
               </Suspense>
             ) : view === "map" ? (
-              <p className="py-16 text-center text-sm text-muted-foreground">地图视图（待实现）</p>
+              <Suspense fallback={<ViewSkeleton view="map" />}>
+                <WorldMap nodes={visible} onOpen={go} country={country} />
+              </Suspense>
             ) : (
               <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {visible.map((n: Node) => (
