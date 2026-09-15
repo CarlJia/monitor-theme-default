@@ -1,6 +1,6 @@
-# monitor-theme-default
+# monitor-theme-gymin
 
-[monitor](https://github.com/monitor-probe/monitor) 的内置默认主题，同时作为第三方主题的参考实现。
+[monitor](https://github.com/monitor-probe/monitor) 的第三方主题（极敏·Gymin），基于内置状态面板丰富表现形式。
 
 React + Vite + shadcn/ui，黑白配色。
 
