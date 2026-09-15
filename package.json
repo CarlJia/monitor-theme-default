@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "node src/lib/format.test.ts && node src/lib/api.test.ts && node src/lib/view.test.ts",
+    "test": "node src/lib/format.test.ts && node src/lib/api.test.ts && node src/lib/view.test.ts && node src/lib/geo.test.ts",
     "preview": "vite preview",
     "package-theme": "node scripts/package-theme.mjs"
   },
@@ -16,6 +16,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "d3-array": "^3.2.4",
+    "d3-geo": "^3.1.1",
     "lucide-react": "^1.34.0",
     "radix-ui": "^1.6.7",
     "react": "^19.2.8",
@@ -23,13 +24,17 @@
     "recharts": "^3.10.1",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
-    "tw-animate-css": "^1.4.0"
+    "topojson-client": "^3.1.0",
+    "tw-animate-css": "^1.4.0",
+    "world-atlas": "^2.0.2"
   },
   "devDependencies": {
     "@types/d3-array": "^3.2.2",
+    "@types/d3-geo": "^3.1.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "@types/topojson-client": "^3.1.5",
     "@vitejs/plugin-react": "^6.1.0",
     "oxlint": "^1.79.0",
     "tar": "^7.4.3",
