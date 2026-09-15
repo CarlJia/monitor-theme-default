@@ -142,6 +142,10 @@ export default function App() {
     // the split trades its first paint for a full-page skeleton over the first
     // node opened: 2.6s click-to-chart on 4G against 1.4s unsplit, 1.7s warm.
     void loadDetail()
+    // The map chunk is the heaviest new view (Leaflet + country outlines);
+    // warming it after paint keeps the first switch off the critical path
+    // without adding to the landing page's weight (R11).
+    void loadMap()
   }, [loadMe])
 
   // The status page was closed while this tab was open. `me` holds whatever it
