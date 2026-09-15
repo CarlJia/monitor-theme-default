@@ -17,6 +17,11 @@ type Me = { authed: boolean; github: boolean; site_name: string; public_page: bo
 const loadDetail = () => import("@/components/NodeDetail").then((m) => ({ default: m.NodeDetail }))
 const NodeDetail = lazy(loadDetail)
 
+// The two new views ride the same pattern: their chunks arrive after first
+// paint, so the default card view keeps its current weight (R11).
+const loadTable = () => import("@/components/NodeTable").then((m) => ({ default: m.NodeTable }))
+const NodeTable = lazy(loadTable)
+
 // `/node/{id}` is a real page: it survives a reload, can be linked to, and back
 // leaves the detail view rather than the site. The hub serves index.html for any
 // unknown path, so no server-side route is required.
@@ -227,7 +232,9 @@ export default function App() {
                 该国家没有节点。<button className="underline" onClick={() => setCountry(null)}>查看全部</button>
               </p>
             ) : view === "table" ? (
-              <p className="py-16 text-center text-sm text-muted-foreground">表格视图（待实现）</p>
+              <Suspense fallback={<ViewSkeleton view="table" />}>
+                <NodeTable nodes={visible} onOpen={go} />
+              </Suspense>
             ) : view === "map" ? (
               <p className="py-16 text-center text-sm text-muted-foreground">地图视图（待实现）</p>
             ) : (
