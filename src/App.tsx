@@ -7,6 +7,7 @@ import { Summary } from "@/components/Summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, useNodes, type Node } from "@/lib/api"
+import { readView, saveView, type View } from "@/lib/view"
 
 type Me = { authed: boolean; github: boolean; site_name: string; public_page: boolean }
 
@@ -40,6 +41,58 @@ function useNodeRoute() {
   ] as const
 }
 
+const VIEWS: { key: View; label: string }[] = [
+  { key: "cards", label: "卡片" },
+  { key: "table", label: "表格" },
+  { key: "map", label: "地图" },
+]
+
+/**
+ * The three browsing shapes of the fleet. The switcher sits above the country
+ * chips -- both act on the list, so they belong to the same group. aria-pressed
+ * follows the CountryFilter chip pattern so the current view is announced.
+ */
+function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => void }) {
+  return (
+    <div className="flex gap-1">
+      {VIEWS.map((v) => (
+        <button
+          key={v.key}
+          type="button"
+          aria-pressed={view === v.key}
+          onClick={() => onChange(v.key)}
+          className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+            view === v.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Loading placeholders keep each view's shape, so the switch never jumps. */
+function ViewSkeleton({ view }: { view: View }) {
+  if (view === "cards")
+    return (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-72" />
+        ))}
+      </div>
+    )
+  if (view === "table")
+    return (
+      <div className="space-y-2">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-10" />
+        ))}
+      </div>
+    )
+  return <Skeleton className="h-[480px] w-full" />
+}
+
 function useTheme() {
   const [dark, setDark] = useState(() => {
     const saved = localStorage.getItem("theme")
@@ -59,6 +112,11 @@ export default function App() {
   const { nodes, error, closed } = useNodes()
   const [open, go] = useNodeRoute()
   const [country, setCountry] = useState<string | null>(null)
+  const [view, setView] = useState(readView)
+  const switchView = useCallback((next: View) => {
+    saveView(next)
+    setView(next)
+  }, [])
 
   const loadMe = useCallback(() => {
     // `|| "..."` because an empty message reads as no error: api() falls back to
@@ -154,14 +212,13 @@ export default function App() {
             </p>
           )
         ) : !nodes ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-72" />
-            ))}
-          </div>
+          <ViewSkeleton view={view} />
         ) : (
           <>
             <Summary nodes={sorted} />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <ViewSwitch view={view} onChange={switchView} />
+            </div>
             <CountryFilter nodes={sorted} selected={country} onChange={setCountry} />
             {sorted.length === 0 ? (
               <p className="py-16 text-center text-sm text-muted-foreground">还没有节点</p>
@@ -169,6 +226,10 @@ export default function App() {
               <p className="py-16 text-center text-sm text-muted-foreground">
                 该国家没有节点。<button className="underline" onClick={() => setCountry(null)}>查看全部</button>
               </p>
+            ) : view === "table" ? (
+              <p className="py-16 text-center text-sm text-muted-foreground">表格视图（待实现）</p>
+            ) : view === "map" ? (
+              <p className="py-16 text-center text-sm text-muted-foreground">地图视图（待实现）</p>
             ) : (
               <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {visible.map((n: Node) => (
