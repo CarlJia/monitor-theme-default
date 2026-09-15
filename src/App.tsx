@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react"
 import { Moon, Sun, Wrench } from "lucide-react"
 
+import { CountryFilter } from "@/components/CountryFilter"
 import { NodeCard } from "@/components/NodeCard"
 import { Summary } from "@/components/Summary"
 import { Button } from "@/components/ui/button"
@@ -57,6 +58,7 @@ export default function App() {
   const [meError, setMeError] = useState("")
   const { nodes, error, closed } = useNodes()
   const [open, go] = useNodeRoute()
+  const [country, setCountry] = useState<string | null>(null)
 
   const loadMe = useCallback(() => {
     // `|| "..."` because an empty message reads as no error: api() falls back to
@@ -90,6 +92,9 @@ export default function App() {
   }, [me])
 
   const sorted = [...(nodes ?? [])].sort((a, b) => a.sort - b.sort || a.id - b.id)
+  // null = unfiltered; a country code narrows the grid but not the summary,
+  // which keeps reporting on the whole fleet.
+  const visible = country ? sorted.filter((n) => n.country === country) : sorted
   const selected = sorted.find((n) => n.id === open)
 
   // `/node/{id}` is a page people bookmark and share, so the tab needs the node's
@@ -157,11 +162,16 @@ export default function App() {
         ) : (
           <>
             <Summary nodes={sorted} />
+            <CountryFilter nodes={sorted} selected={country} onChange={setCountry} />
             {sorted.length === 0 ? (
               <p className="py-16 text-center text-sm text-muted-foreground">还没有节点</p>
+            ) : visible.length === 0 ? (
+              <p className="py-16 text-center text-sm text-muted-foreground">
+                该国家没有节点。<button className="underline" onClick={() => setCountry(null)}>查看全部</button>
+              </p>
             ) : (
               <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {sorted.map((n: Node) => (
+                {visible.map((n: Node) => (
                   <NodeCard key={n.id} node={n} onOpen={() => go(n.id)} />
                 ))}
               </div>
