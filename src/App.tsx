@@ -1,11 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react"
 import { Moon, Sun, Wrench } from "lucide-react"
 
+import { CountryFilter } from "@/components/CountryFilter"
 import { NodeCard } from "@/components/NodeCard"
 import { Summary } from "@/components/Summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, useNodes, type Node } from "@/lib/api"
+import { readView, saveView, type View } from "@/lib/view"
 
 type Me = { authed: boolean; github: boolean; site_name: string; public_page: boolean }
 
@@ -14,6 +16,13 @@ type Me = { authed: boolean; github: boolean; site_name: string; public_page: bo
 // 188 kB), with the rest fetched immediately after it paints.
 const loadDetail = () => import("@/components/NodeDetail").then((m) => ({ default: m.NodeDetail }))
 const NodeDetail = lazy(loadDetail)
+
+// The two new views ride the same pattern: their chunks arrive after first
+// paint, so the default card view keeps its current weight (R11).
+const loadTable = () => import("@/components/NodeTable").then((m) => ({ default: m.NodeTable }))
+const NodeTable = lazy(loadTable)
+const loadMap = () => import("@/components/WorldMap").then((m) => ({ default: m.WorldMap }))
+const WorldMap = lazy(loadMap)
 
 // `/node/{id}` is a real page: it survives a reload, can be linked to, and back
 // leaves the detail view rather than the site. The hub serves index.html for any
@@ -39,6 +48,58 @@ function useNodeRoute() {
   ] as const
 }
 
+const VIEWS: { key: View; label: string }[] = [
+  { key: "cards", label: "卡片" },
+  { key: "table", label: "表格" },
+  { key: "map", label: "地图" },
+]
+
+/**
+ * The three browsing shapes of the fleet. The switcher sits above the country
+ * chips -- both act on the list, so they belong to the same group. aria-pressed
+ * follows the CountryFilter chip pattern so the current view is announced.
+ */
+function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => void }) {
+  return (
+    <div className="flex gap-1">
+      {VIEWS.map((v) => (
+        <button
+          key={v.key}
+          type="button"
+          aria-pressed={view === v.key}
+          onClick={() => onChange(v.key)}
+          className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+            view === v.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Loading placeholders keep each view's shape, so the switch never jumps. */
+function ViewSkeleton({ view }: { view: View }) {
+  if (view === "cards")
+    return (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-72" />
+        ))}
+      </div>
+    )
+  if (view === "table")
+    return (
+      <div className="space-y-2">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-10" />
+        ))}
+      </div>
+    )
+  return <Skeleton className="h-[480px] w-full" />
+}
+
 function useTheme() {
   const [dark, setDark] = useState(() => {
     const saved = localStorage.getItem("theme")
@@ -57,6 +118,12 @@ export default function App() {
   const [meError, setMeError] = useState("")
   const { nodes, error, closed } = useNodes()
   const [open, go] = useNodeRoute()
+  const [country, setCountry] = useState<string | null>(null)
+  const [view, setView] = useState(readView)
+  const switchView = useCallback((next: View) => {
+    saveView(next)
+    setView(next)
+  }, [])
 
   const loadMe = useCallback(() => {
     // `|| "..."` because an empty message reads as no error: api() falls back to
@@ -75,6 +142,10 @@ export default function App() {
     // the split trades its first paint for a full-page skeleton over the first
     // node opened: 2.6s click-to-chart on 4G against 1.4s unsplit, 1.7s warm.
     void loadDetail()
+    // The map chunk is the heaviest new view (Leaflet + country outlines);
+    // warming it after paint keeps the first switch off the critical path
+    // without adding to the landing page's weight (R11).
+    void loadMap()
   }, [loadMe])
 
   // The status page was closed while this tab was open. `me` holds whatever it
@@ -90,6 +161,9 @@ export default function App() {
   }, [me])
 
   const sorted = [...(nodes ?? [])].sort((a, b) => a.sort - b.sort || a.id - b.id)
+  // null = unfiltered; a country code narrows the grid but not the summary,
+  // which keeps reporting on the whole fleet.
+  const visible = country ? sorted.filter((n) => n.country === country) : sorted
   const selected = sorted.find((n) => n.id === open)
 
   // `/node/{id}` is a page people bookmark and share, so the tab needs the node's
@@ -149,19 +223,35 @@ export default function App() {
             </p>
           )
         ) : !nodes ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-72" />
-            ))}
-          </div>
+          <ViewSkeleton view={view} />
         ) : (
           <>
             <Summary nodes={sorted} />
+            <div className="flex flex-wrap items-center gap-2">
+              <CountryFilter nodes={sorted} selected={country} onChange={setCountry} />
+              {/* ml-auto 而非 justify-between：chip 行换行或过滤器缺席（无国家
+                  数据时渲染 null）时，切换控件仍钉在右侧。 */}
+              <div className="ml-auto">
+                <ViewSwitch view={view} onChange={switchView} />
+              </div>
+            </div>
             {sorted.length === 0 ? (
               <p className="py-16 text-center text-sm text-muted-foreground">还没有节点</p>
+            ) : visible.length === 0 ? (
+              <p className="py-16 text-center text-sm text-muted-foreground">
+                该国家没有节点。<button className="underline" onClick={() => setCountry(null)}>查看全部</button>
+              </p>
+            ) : view === "table" ? (
+              <Suspense fallback={<ViewSkeleton view="table" />}>
+                <NodeTable nodes={visible} onOpen={go} />
+              </Suspense>
+            ) : view === "map" ? (
+              <Suspense fallback={<ViewSkeleton view="map" />}>
+                <WorldMap nodes={visible} onOpen={go} country={country} />
+              </Suspense>
             ) : (
               <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {sorted.map((n: Node) => (
+                {visible.map((n: Node) => (
                   <NodeCard key={n.id} node={n} onOpen={() => go(n.id)} />
                 ))}
               </div>

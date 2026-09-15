@@ -94,6 +94,18 @@ export const CYCLES: Record<string, string> = {
   once: "一次性",
 }
 
+// ISO 3166-1 alpha-2 -> flag emoji, via the regional indicator pair the spec
+// defines for each letter (U+1F1E6..U+1F1FF for A..Z, so a letter L maps to
+// 0x1F1E6 + (L - 'A')).
+export function countryToFlag(code: string): string {
+  if (!code) return ""
+  return code
+    .toUpperCase()
+    .split("")
+    .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
+    .join("")
+}
+
 // Hoisted out of `clock`: recharts calls a tickFormatter for every sample when
 // laying out an axis rather than once per tick drawn, and constructing an Intl
 // formatter per call was the largest single cost on the detail page -- 348 ms of

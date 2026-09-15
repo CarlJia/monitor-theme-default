@@ -4,23 +4,9 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Meter } from "@/components/Meter"
 import type { Node } from "@/lib/api"
-import { bytes, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
+import { bytes, countryToFlag, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
+import { monthUsage, trafficFoot } from "@/lib/traffic"
 import { cn } from "@/lib/utils"
-
-/** Which direction the plan meters, matching the node's traffic_mode. */
-function monthUsage(node: Node): number {
-  const { month_rx: rx, month_tx: tx } = node
-  switch (node.traffic_mode) {
-    case "up":
-      return tx
-    case "down":
-      return rx
-    case "max":
-      return Math.max(rx, tx)
-    default:
-      return rx + tx
-  }
-}
 
 // A node that has reported once has told the hub its shape -- cores, memory,
 // disk -- and the hub retains its traffic totals whether connected or not. A node
@@ -48,28 +34,26 @@ export function Status({ node }: { node: Node }) {
       variant="outline"
       className={cn("tnum shrink-0 gap-1.5 font-normal", !node.online && "text-muted-foreground")}
     >
-      <span className={cn("size-1.5 rounded-full", node.online ? "bg-foreground" : "bg-muted-foreground/40")} />
+      <span className={cn("size-1.5 rounded-full", node.online ? "bg-online" : "bg-muted-foreground/40")} />
       {label.trim()}
     </Badge>
   )
 }
 
-/** Where the machine is, in the same shape as the badge next to it. */
+/** Where the machine is. Default render is the flag emoji so a row of badges
+ *  reads at a glance; the native tooltip on hover shows the country letters for
+ *  anyone who needs the code spelled out. */
 export function Country({ node }: { node: Node }) {
   if (!node.country) return null
   return (
-    <Badge variant="outline" className="shrink-0 font-normal text-muted-foreground">
-      {node.country}
+    <Badge
+      variant="outline"
+      className="shrink-0 font-normal text-muted-foreground"
+      title={node.country}
+    >
+      {countryToFlag(node.country)}
     </Badge>
   )
-}
-
-// Traffic uses the plan's own counting rule, so the bar matches the quota the
-// node is billed against.
-function trafficFoot(node: Node) {
-  return node.traffic_limit > 0
-    ? pair(monthUsage(node), node.traffic_limit)
-    : `${bytes(monthUsage(node))} / ${FOREVER}`
 }
 
 // No date means nothing expires: a permanent host, or one with no renewal set. A
