@@ -227,8 +227,14 @@ export default function App() {
         ) : (
           <>
             <Summary nodes={sorted} />
-            <ViewSwitch view={view} onChange={switchView} />
-            <CountryFilter nodes={sorted} selected={country} onChange={setCountry} />
+            <div className="flex flex-wrap items-center gap-2">
+              <CountryFilter nodes={sorted} selected={country} onChange={setCountry} />
+              {/* ml-auto 而非 justify-between：chip 行换行或过滤器缺席（无国家
+                  数据时渲染 null）时，切换控件仍钉在右侧。 */}
+              <div className="ml-auto">
+                <ViewSwitch view={view} onChange={switchView} />
+              </div>
+            </div>
             {sorted.length === 0 ? (
               <p className="py-16 text-center text-sm text-muted-foreground">还没有节点</p>
             ) : visible.length === 0 ? (
@@ -241,7 +247,7 @@ export default function App() {
               </Suspense>
             ) : view === "map" ? (
               <Suspense fallback={<ViewSkeleton view="map" />}>
-                <WorldMap nodes={visible} onOpen={go} country={country} />
+                <WorldMap nodes={visible} onOpen={go} country={country} dark={dark} />
               </Suspense>
             ) : (
               <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
