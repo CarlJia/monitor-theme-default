@@ -2,36 +2,40 @@ import { ArrowDown, ArrowUp } from "lucide-react"
 
 import { Country, Status } from "@/components/NodeCard"
 import type { Node } from "@/lib/api"
-import { bytes, FOREVER, pair, rate, uptime } from "@/lib/format"
-import { monthUsage } from "@/lib/traffic"
+import { pair, rate, uptime } from "@/lib/format"
+import { trafficFoot } from "@/lib/traffic"
 
-const COLS = ["名称", "国家", "状态", "uptime", "CPU", "内存", "硬盘", "月流量", "网速"] as const
+/** The columns after identity (name/country/status) — one source for header and cells. */
+type Metric = "uptime" | "cpu" | "mem" | "disk" | "traffic" | "speed"
+
+const COLS: { key: Metric; label: string }[] = [
+  { key: "uptime", label: "uptime" },
+  { key: "cpu", label: "CPU" },
+  { key: "mem", label: "内存" },
+  { key: "disk", label: "硬盘" },
+  { key: "traffic", label: "月流量" },
+  { key: "speed", label: "网速" },
+]
 
 // A cell that has nothing live to show keeps its dash rather than a stretched
 // blank, mirroring the card's treatment of a disconnected node.
 const Dash = () => <span className="text-muted-foreground">—</span>
 
-function Cell({ node, metric }: { node: Node; metric: string }): React.ReactNode {
+function MetricCell({ node, metric }: { node: Node; metric: Metric }): React.ReactNode {
   const m = node.metrics
   switch (metric) {
-    case "CPU":
-      return m ? <span className="tnum">{m.cpu.toFixed(1)}%</span> : <Dash />
-    case "内存":
-      return m ? <span className="tnum">{pair(m.mem_used, m.mem_total)}</span> : <Dash />
-    case "硬盘":
-      return m ? <span className="tnum">{pair(m.disk_used, m.disk_total)}</span> : <Dash />
     case "uptime":
       return m ? <span className="tnum">{uptime(m.uptime)}</span> : <Dash />
-    case "月流量": {
+    case "cpu":
+      return m ? <span className="tnum">{m.cpu.toFixed(1)}%</span> : <Dash />
+    case "mem":
+      return m ? <span className="tnum">{pair(m.mem_used, m.mem_total)}</span> : <Dash />
+    case "disk":
+      return m ? <span className="tnum">{pair(m.disk_used, m.disk_total)}</span> : <Dash />
+    case "traffic":
       // 流量用计费口径（traffic_mode），与卡片的进度条同一规则。
-      const used = monthUsage(node)
-      return (
-        <span className="tnum">
-          {node.traffic_limit > 0 ? pair(used, node.traffic_limit) : `${bytes(used)} / ${FOREVER}`}
-        </span>
-      )
-    }
-    case "网速":
+      return <span className="tnum">{trafficFoot(node)}</span>
+    case "speed":
       return m ? (
         <span className="tnum inline-flex items-center gap-2">
           <span className="inline-flex items-center gap-1">
@@ -46,8 +50,6 @@ function Cell({ node, metric }: { node: Node; metric: string }): React.ReactNode
       ) : (
         <Dash />
       )
-    default:
-      return null
   }
 }
 
@@ -62,9 +64,12 @@ export function NodeTable({ nodes, onOpen }: { nodes: Node[]; onOpen: (id: numbe
       <table className="w-full min-w-[860px] border-collapse text-sm">
         <thead>
           <tr className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
+            <th className="px-3 py-2 font-medium">名称</th>
+            <th className="px-3 py-2 font-medium">国家</th>
+            <th className="px-3 py-2 font-medium">状态</th>
             {COLS.map((col) => (
-              <th key={col} className="px-3 py-2 font-medium">
-                {col}
+              <th key={col.key} className="px-3 py-2 font-medium">
+                {col.label}
               </th>
             ))}
           </tr>
@@ -86,9 +91,9 @@ export function NodeTable({ nodes, onOpen }: { nodes: Node[]; onOpen: (id: numbe
               <td className="px-3 py-2">
                 <Status node={node} />
               </td>
-              {["uptime", "CPU", "内存", "硬盘", "月流量", "网速"].map((metric) => (
-                <td key={metric} className="whitespace-nowrap px-3 py-2">
-                  <Cell node={node} metric={metric} />
+              {COLS.map((col) => (
+                <td key={col.key} className="whitespace-nowrap px-3 py-2">
+                  <MetricCell node={node} metric={col.key} />
                 </td>
               ))}
             </tr>

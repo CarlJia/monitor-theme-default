@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Meter } from "@/components/Meter"
 import type { Node } from "@/lib/api"
 import { bytes, countryToFlag, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
-import { monthUsage } from "@/lib/traffic"
+import { monthUsage, trafficFoot } from "@/lib/traffic"
 import { cn } from "@/lib/utils"
 
 // A node that has reported once has told the hub its shape -- cores, memory,
@@ -54,14 +54,6 @@ export function Country({ node }: { node: Node }) {
       {countryToFlag(node.country)}
     </Badge>
   )
-}
-
-// Traffic uses the plan's own counting rule, so the bar matches the quota the
-// node is billed against.
-function trafficFoot(node: Node) {
-  return node.traffic_limit > 0
-    ? pair(monthUsage(node), node.traffic_limit)
-    : `${bytes(monthUsage(node))} / ${FOREVER}`
 }
 
 // No date means nothing expires: a permanent host, or one with no renewal set. A

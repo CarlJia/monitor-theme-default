@@ -227,9 +227,7 @@ export default function App() {
         ) : (
           <>
             <Summary nodes={sorted} />
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <ViewSwitch view={view} onChange={switchView} />
-            </div>
+            <ViewSwitch view={view} onChange={switchView} />
             <CountryFilter nodes={sorted} selected={country} onChange={setCountry} />
             {sorted.length === 0 ? (
               <p className="py-16 text-center text-sm text-muted-foreground">还没有节点</p>

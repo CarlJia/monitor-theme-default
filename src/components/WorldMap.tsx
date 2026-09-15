@@ -16,6 +16,9 @@ const BUBBLE_CLASS = {
   none: "map-bubble-none",
 } as const
 
+// 底图特征一次展开：切回地图视图（含严格模式双挂载）不再重算 237 条。
+const LAND_FEATURES = [...countriesByCode.values()].flatMap((e) => (e.feature ? [e.feature] : []))
+
 export function WorldMap({
   nodes,
   onOpen,
@@ -27,7 +30,6 @@ export function WorldMap({
   country: string | null
 }) {
   const host = useRef<HTMLDivElement>(null)
-  const map = useRef<L.Map | null>(null)
   const bubbles = useRef<L.LayerGroup | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
 
@@ -42,17 +44,11 @@ export function WorldMap({
       maxZoom: 8,
       worldCopyJump: true,
     })
-    L.geoJSON(
-      // 只画有轮廓的国家；小属地（SG/HK 等）以回退坐标落气泡，不画形状。
-      [...countriesByCode.values()].flatMap((e) => (e.feature ? [e.feature] : [])),
-      { style: { className: "map-land", weight: 1 } },
-    ).addTo(m)
+    L.geoJSON(LAND_FEATURES, { style: { className: "map-land", weight: 1 } }).addTo(m)
     m.fitWorld()
     bubbles.current = L.layerGroup().addTo(m)
-    map.current = m
     return () => {
       m.remove()
-      map.current = null
       bubbles.current = null
     }
   }, [])
