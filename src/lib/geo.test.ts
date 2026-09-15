@@ -29,4 +29,13 @@ assert.equal(countriesByCode.get("XX"), undefined, "未知 alpha-2 返回 undefi
 // 110m 数据全集规模：掉了一半国家说明数字码表或转换断了。
 assert.ok(countriesByCode.size >= 170, `应至少 170 国，实际 ${countriesByCode.size}`)
 
+// 小属地回退坐标：110m 不画 SG/HK/MO 轮廓，但它们是 VPS 常见落点，
+// 气泡必须仍能落点（无轮廓、有坐标）。
+const sg = countriesByCode.get("SG")
+assert.ok(sg, "SG 有回退坐标条目")
+assert.ok(!sg!.feature, "SG 无轮廓（110m 未收录）")
+assert.ok(Math.abs(sg!.centroid[0] - 1.35) < 0.01 && Math.abs(sg!.centroid[1] - 103.82) < 0.01, "SG 坐标为手工回退值")
+assert.ok(countriesByCode.get("HK"), "HK 有回退坐标条目")
+assert.ok(countriesByCode.get("MO"), "MO 有回退坐标条目")
+
 console.log(`国家码表与轮廓中心正确（${countriesByCode.size} 国）`)

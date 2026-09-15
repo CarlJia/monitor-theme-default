@@ -43,7 +43,8 @@ export function WorldMap({
       worldCopyJump: true,
     })
     L.geoJSON(
-      [...countriesByCode.values()].map((e) => e.feature),
+      // 只画有轮廓的国家；小属地（SG/HK 等）以回退坐标落气泡，不画形状。
+      [...countriesByCode.values()].flatMap((e) => (e.feature ? [e.feature] : [])),
       { style: { className: "map-land", weight: 1 } },
     ).addTo(m)
     m.fitWorld()
