@@ -2,7 +2,7 @@ import { geoCentroid } from "d3-geo"
 import { feature } from "topojson-client"
 import type { Feature, FeatureCollection, Geometry } from "geojson"
 import type { Topology } from "topojson-specification"
-import countries from "world-atlas/countries-110m.json" with { type: "json" }
+import countries from "world-atlas/countries-50m.json" with { type: "json" }
 
 // .ts 扩展名：本文件被 node 直跑的 geo.test.ts 导入，Node 的 ESM 解析要求
 // 显式扩展名；tsc（allowImportingTsExtensions）与 Vite 都接受同一写法。
@@ -15,9 +15,8 @@ export type CountryEntry = {
   centroid: [number, number]
 }
 
-// 110m 数据不画小属地——而新加坡、香港正是 VPS 最常见的落点之一，跳过它们
-// 会让地图对这类机群失真。气泡只需要坐标，不需要轮廓：这些国家用手工
-// 中心坐标落点，底图仍然只画有轮廓的国家。
+// 50m 数据不画的个别边缘属地（如 GF、GI）用手工坐标落点——气泡只需要
+// 坐标，不需要轮廓；底图仍然只画有轮廓的国家。
 const FALLBACK_CENTROIDS: Record<string, [number, number]> = {
   AD: [42.55, 1.6], AI: [18.22, -63.06], AS: [-14.27, -170.13], AX: [60.22, 19.94],
   BB: [13.18, -59.55], BH: [26.03, 50.56], BM: [32.3, -64.76], BL: [17.9, -62.85],
@@ -38,10 +37,11 @@ const FALLBACK_CENTROIDS: Record<string, [number, number]> = {
 }
 
 /**
- * alpha-2 → 国家轮廓与中心。模块加载时构建一次：110m 数据 105 KB，转换与
- * 求心各跑一遍就够，之后全是查表。world-atlas 用数字码作 feature id，经
- * `country-codes.ts` 换成 alpha-2；缺轮廓的小属地落回手工坐标；两者都没有
- * 的 alpha-2 不出现——地图少一个条目比报错好。
+ * alpha-2 → 国家轮廓与中心。模块加载时构建一次：50m 数据 739 KB（gzip
+ * ~227 KB，只进地图懒加载块），转换与求心各跑一遍就够，之后全是查表。
+ * world-atlas 用数字码作 feature id，经 `country-codes.ts` 换成 alpha-2；
+ * 缺轮廓的边缘属地落回手工坐标；两者都没有的 alpha-2 不出现——地图少一
+ * 个条目比报错好。
  */
 const entries = new Map<string, CountryEntry>()
 {

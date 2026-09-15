@@ -1,6 +1,7 @@
 import "leaflet/dist/leaflet.css"
 import { useEffect, useRef, useState } from "react"
 import L from "leaflet"
+import { geoGraticule10 } from "d3-geo"
 
 import { Status } from "@/components/NodeCard"
 import type { Node } from "@/lib/api"
@@ -16,8 +17,10 @@ const BUBBLE_CLASS = {
   none: "map-bubble-none",
 } as const
 
-// 底图特征一次展开：切回地图视图（含严格模式双挂载）不再重算 237 条。
+// 底图特征一次展开：切回地图视图（含严格模式双挂载）不再重算 241 条。
+// 50m 高分辨率轮廓 + 经纬网，全部内置，零外部请求（R11 同源约束）。
 const LAND_FEATURES = [...countriesByCode.values()].flatMap((e) => (e.feature ? [e.feature] : []))
+const GRATICULE = geoGraticule10()
 
 export function WorldMap({
   nodes,
@@ -33,9 +36,9 @@ export function WorldMap({
   const bubbles = useRef<L.LayerGroup | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
 
-  // 地图只建一次：底图轮廓来自内置数据（R11 同源约束，无任何瓦片请求），
-  // 清理函数保证严格模式双挂载安全。relative z-0 把 Leaflet 内部 200–1000
-  // 的 z-index 关进容器自己的层叠上下文，滚动时不会浮到吸顶头部上。
+  // 地图只建一次：底图为内置 50m 轮廓与经纬网，无任何瓦片请求（R11）。
+  // relative z-0 把 Leaflet 内部 200–1000 的 z-index 关进容器自己的层叠上
+  // 下文，滚动时不会浮到吸顶头部上；清理函数保证严格模式双挂载安全。
   useEffect(() => {
     if (!host.current) return
     const m = L.map(host.current, {
@@ -44,6 +47,7 @@ export function WorldMap({
       maxZoom: 8,
       worldCopyJump: true,
     })
+    L.geoJSON(GRATICULE, { style: { className: "map-graticule", weight: 0.5, fill: false } }).addTo(m)
     L.geoJSON(LAND_FEATURES, { style: { className: "map-land", weight: 1 } }).addTo(m)
     m.fitWorld()
     bubbles.current = L.layerGroup().addTo(m)

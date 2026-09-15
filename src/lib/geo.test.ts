@@ -39,13 +39,15 @@ for (const [code, entry] of countriesByCode) {
 // 110m 数据全集规模：掉了一半国家说明数字码表或转换断了。
 assert.ok(countriesByCode.size >= 170, `应至少 170 国，实际 ${countriesByCode.size}`)
 
-// 小属地回退坐标：110m 不画 SG/HK/MO 轮廓，但它们是 VPS 常见落点，
-// 气泡必须仍能落点（无轮廓、有坐标）。
+// 边缘属地：50m 收录 SG/HK 等常见 VPS 落点（有轮廓）；个别更小的属地
+// （如 GF）无轮廓但必须有回退坐标，气泡不丢。
 const sg = countriesByCode.get("SG")
-assert.ok(sg, "SG 有回退坐标条目")
-assert.ok(!sg!.feature, "SG 无轮廓（110m 未收录）")
-assert.ok(Math.abs(sg!.centroid[0] - 1.35) < 0.01 && Math.abs(sg!.centroid[1] - 103.82) < 0.01, "SG 坐标为手工回退值")
-assert.ok(countriesByCode.get("HK"), "HK 有回退坐标条目")
-assert.ok(countriesByCode.get("MO"), "MO 有回退坐标条目")
+assert.ok(sg, "SG 有条目")
+assert.ok(sg!.feature, "SG 在 50m 数据中有轮廓")
+assert.ok(countriesByCode.get("HK")?.feature, "HK 在 50m 数据中有轮廓")
+const gf = countriesByCode.get("GF")
+assert.ok(gf, "GF 有回退坐标条目")
+assert.ok(!gf!.feature, "GF 无轮廓（50m 未收录）")
+assert.ok(Math.abs(gf!.centroid[0] - 3.88) < 0.01 && Math.abs(gf!.centroid[1] + 53.06) < 0.01, "GF 坐标为手工回退值")
 
 console.log(`国家码表与轮廓中心正确（${countriesByCode.size} 国）`)

@@ -121,14 +121,16 @@
 /* Tabular figures keep live numbers from shifting as they update. */
 .tnum { font-variant-numeric: tabular-nums; }
 
-/* Leaflet 地图（无瓦片，底图为内置 GeoJSON）：配色全部走主题变量，CSS 规则
-   覆盖 Leaflet 写在 SVG 上的呈现属性，明暗切换即时生效、无需重绘。 */
-.leaflet-container { background: var(--background); font: inherit; }
+/* Leaflet 地图（底图为内置 50m 轮廓 + 经纬网，无瓦片）：配色全部走主题
+   变量，CSS 规则覆盖 Leaflet 写在 SVG 上的呈现属性，明暗切换即时生效。
+   选择器双写自身类名：leaflet.css 随懒加载块后注入，同特异性会被它压过。 */
+.leaflet-container.leaflet-container { background: var(--background); font: inherit; }
 .map-land { stroke: var(--border); fill: var(--muted); }
+.map-graticule { stroke: var(--border); opacity: 0.5; }
 .map-bubble-all { stroke: var(--background); fill: var(--online); }
 .map-bubble-partial { stroke: var(--background); fill: var(--foreground); }
 .map-bubble-none { stroke: var(--muted-foreground); fill: transparent; }
-.leaflet-tooltip {
+.leaflet-tooltip.leaflet-tooltip {
   background: var(--popover);
   color: var(--popover-foreground);
   border: 1px solid var(--border);

@@ -247,7 +247,7 @@ export default function App() {
               </Suspense>
             ) : view === "map" ? (
               <Suspense fallback={<ViewSkeleton view="map" />}>
-                <WorldMap nodes={visible} onOpen={go} country={country} dark={dark} />
+                <WorldMap nodes={visible} onOpen={go} country={country} />
               </Suspense>
             ) : (
               <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
