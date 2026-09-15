@@ -13,15 +13,11 @@ export function aggregateByCountry(nodes: Node[]): Map<string, CountryStat> {
   const stats = new Map<string, CountryStat>()
   for (const n of nodes) {
     if (!n.country) continue
-    const stat = stats.get(n.country)
-    if (stat) {
-      stat.total++
-      if (n.online) stat.online++
-    } else {
-      stats.set(n.country, { total: 1, online: n.online ? 1 : 0, state: "none" })
-    }
-    const s = stats.get(n.country)!
-    s.state = s.online === 0 ? "none" : s.online === s.total ? "all" : "partial"
+    const stat = stats.get(n.country) ?? { total: 0, online: 0, state: "none" }
+    stat.total++
+    if (n.online) stat.online++
+    stat.state = stat.online === 0 ? "none" : stat.online === stat.total ? "all" : "partial"
+    stats.set(n.country, stat)
   }
   return stats
 }

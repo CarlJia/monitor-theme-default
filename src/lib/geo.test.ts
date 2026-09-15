@@ -19,12 +19,22 @@ const values = Object.values(COUNTRY_CODES)
 assert.equal(new Set(values).size, values.length, "alpha-2 值不重复")
 assert.ok(values.every((v) => /^[A-Z]{2}$/.test(v)), "alpha-2 均为两个大写字母")
 
-// 轮廓中心：US 的中心在北半球西半边；未知码安全返回 undefined 而非抛错。
+// 轮廓中心（[纬度,经度]，Leaflet 口径）：US 中心在北半球西半边；
+// 未知码安全返回 undefined 而非抛错。
 const us = countriesByCode.get("US")
 assert.ok(us, "US 有轮廓条目")
-assert.ok(us!.centroid[0] < -90 && us!.centroid[0] > -130, "US 经度在西半边")
-assert.ok(us!.centroid[1] > 25 && us!.centroid[1] < 50, "US 纬度在本土范围")
+assert.ok(us!.centroid[0] > 25 && us!.centroid[0] < 50, "US 纬度在本土范围")
+assert.ok(us!.centroid[1] < -90 && us!.centroid[1] > -130, "US 经度在西半边")
 assert.equal(countriesByCode.get("XX"), undefined, "未知 alpha-2 返回 undefined")
+
+// 全表守卫：centroid[0] 是纬度，必须落在 [-90,90]，混入 [经度,纬度] 顺序
+// （d3-geo 口径）的条目会在这里现形。
+for (const [code, entry] of countriesByCode) {
+  assert.ok(
+    Math.abs(entry.centroid[0]) <= 90,
+    `${code} 的 centroid[0] 应为纬度（|值| ≤ 90），实际 ${entry.centroid[0]}`,
+  )
+}
 
 // 110m 数据全集规模：掉了一半国家说明数字码表或转换断了。
 assert.ok(countriesByCode.size >= 170, `应至少 170 国，实际 ${countriesByCode.size}`)

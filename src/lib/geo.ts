@@ -11,7 +11,7 @@ import { COUNTRY_CODES } from "./country-codes.ts"
 export type CountryEntry = {
   /** 国家轮廓，喂给地图底图图层；仅有回退坐标的小属地没有。 */
   feature?: Feature<Geometry>
-  /** 轮廓几何中心（经纬度），气泡的落点。 */
+  /** 轮廓几何中心（纬度,经度），Leaflet 口径，气泡的落点。 */
   centroid: [number, number]
 }
 
@@ -45,16 +45,16 @@ const FALLBACK_CENTROIDS: Record<string, [number, number]> = {
  */
 const entries = new Map<string, CountryEntry>()
 {
-  const world = feature(
-    countries as unknown as Topology,
-    (countries as unknown as Topology).objects.countries,
-  ) as FeatureCollection<Geometry>
+  const topo = countries as unknown as Topology
+  const world = feature(topo, topo.objects.countries) as FeatureCollection<Geometry>
   for (const f of world.features) {
     const alpha2 = COUNTRY_CODES[String(f.id)]
     if (!alpha2) continue
-    const centroid = geoCentroid(f)
-    if (Number.isFinite(centroid[0]) && Number.isFinite(centroid[1])) {
-      entries.set(alpha2, { feature: f, centroid })
+    // geoCentroid 返回 [经度,纬度]，统一翻转为 [纬度,经度]，与
+    // FALLBACK_CENTROIDS 及 L.circleMarker 的口径一致。
+    const c = geoCentroid(f)
+    if (Number.isFinite(c[0]) && Number.isFinite(c[1])) {
+      entries.set(alpha2, { feature: f, centroid: [c[1], c[0]] })
     }
   }
   for (const [alpha2, centroid] of Object.entries(FALLBACK_CENTROIDS)) {
