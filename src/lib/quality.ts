@@ -158,6 +158,29 @@ export function lossText(pct: number): string {
 }
 
 /**
+ * A probe's typical round trip over the window: the median of its buckets.
+ * Buckets where every probe timed out are dropped rather than counted as slow,
+ * so the figure describes the strip instead of the gaps in it. A window that
+ * never answered has no median -- the row prints that as 超时.
+ *
+ * The band's cells carry latency and loss folded into one colour, so the raw
+ * result of that fold needs a number beside it: a yellow bucket does not say
+ * whether the window was slow or lossy.
+ */
+export function medianLatency(points: PingPoint[]): number | null {
+  const answered = points.map((p) => p.latency).filter((v): v is number => !isTimeout(v))
+  if (answered.length === 0) return null
+  answered.sort((a, b) => a - b)
+  const mid = answered.length >> 1
+  return answered.length % 2 === 1 ? answered[mid] : (answered[mid - 1] + answered[mid]) / 2
+}
+
+/** The band row's latency cell. Compact, since it sits inside a card. */
+export function latencyText(ms: number | null): string {
+  return ms === null ? "超时" : `${Math.round(ms)}ms`
+}
+
+/**
  * Folds a batch response into a node-id -> per-probe series map. The map shape
  * (vs an array) lets both views look up a single node by id without scanning.
  *

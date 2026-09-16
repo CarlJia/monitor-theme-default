@@ -9,7 +9,9 @@ import {
   fetchQuality,
   groupByProbe,
   isTimeout,
+  latencyText,
   lossText,
+  medianLatency,
   pointQuality,
   qualityReducer,
   qualityViewState,
@@ -157,6 +159,26 @@ assert.equal(lossText(4.2), "丢 4%", "rounds to the nearest percent")
 assert.equal(lossText(0.4), "丢 <1%", "sub-1% is not rounded to the 0 that means none")
 assert.equal(lossText(1), "丢 1%", "1% is a whole percent")
 assert.equal(lossText(100), "丢 100%", "a full timeout reads as 100%")
+
+// medianLatency: the figure the band row prints. Buckets nobody answered are
+// dropped rather than counted as slow, so the number describes the strip and
+// not the holes in it.
+const bucket = (latency: number | null) => ({ task_id: 1, ts: 0, latency })
+assert.equal(medianLatency([bucket(30), bucket(10), bucket(20)]), 20, "odd count -> the middle reading")
+assert.equal(medianLatency([bucket(40), bucket(10), bucket(30), bucket(20)]), 25, "even count -> mean of the two middles")
+assert.equal(medianLatency([bucket(null), bucket(10), bucket(30)]), 20, "a timed-out bucket is not a 0ms reading")
+assert.equal(medianLatency([bucket(-1), bucket(10), bucket(30)]), 20, "the hub's -1 marker is dropped too")
+assert.equal(medianLatency([bucket(0), bucket(10)]), 5, "0ms is a real reading (isTimeout agrees)")
+assert.equal(medianLatency([bucket(12.4), bucket(12.6)]), 12.5, "the median is not pre-rounded")
+assert.equal(medianLatency([bucket(null), bucket(-1)]), null, "nothing answered -> no median")
+assert.equal(medianLatency([]), null, "an empty window has no median")
+// Loss is the other cell's business; it must not leak into the latency figure.
+assert.equal(medianLatency([{ task_id: 1, ts: 0, latency: 10, loss: 90 }, bucket(30)]), 20, "loss does not move the median")
+
+// latencyText: 超时 is the same word the hover card uses for the same window.
+assert.equal(latencyText(52), "52ms", "whole ms")
+assert.equal(latencyText(52.6), "53ms", "rounds like the hover card")
+assert.equal(latencyText(null), "超时", "a window that never answered")
 
 // batchToSeries: the tri-state vocabulary a single value carries.
 assert.equal(batchToSeries(undefined), undefined, "undefined -> undefined (off)")

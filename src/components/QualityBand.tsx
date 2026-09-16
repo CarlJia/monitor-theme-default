@@ -2,7 +2,7 @@ import { useState } from "react"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import type { ProbeSeries, Quality } from "@/lib/quality"
-import { pointQuality, tooltipText } from "@/lib/quality"
+import { pointQuality, tooltipText, latencyText, lossText, medianLatency } from "@/lib/quality"
 import { cn } from "@/lib/utils"
 
 /**
@@ -23,6 +23,10 @@ type Hover = { x: number; y: number; text: string }
  * One node's network quality: a segmented strip per probe source, stacked
  * vertically with the probe's name leading each row (R3). Cards and the table
  * both render this (KTD4), so the two views cannot drift.
+ *
+ * Each row leads with the window's figures -- the median round trip and the
+ * probe's loss -- because the strip folds both into a single colour per bucket:
+ * the colour alone cannot say whether a run of amber was slow or lossy.
  *
  * The strip is equal-width buckets with a 2px seam (R1): tight enough to read
  * as one continuous band, distinct enough to count a rough proportion at a
@@ -59,6 +63,17 @@ export function QualitySlot({ quality, className }: { quality?: ProbeSeries[] | 
             title={probe.name}
           >
             {probe.name}
+          </span>
+          {/* The window in figures. A bucket's colour is the worse of its
+              latency and its loss, so the two are not separable from the strip
+              alone -- these cells are what says which one it was. The loss cell
+              keeps its width when there is no loss, or the two rows' bands
+              would not line up. */}
+          <span className="tnum w-12 shrink-0 text-right text-xs text-muted-foreground">
+            {latencyText(medianLatency(probe.points))}
+          </span>
+          <span className="tnum w-14 shrink-0 text-xs text-muted-foreground">
+            {probe.loss > 0 ? lossText(probe.loss) : ""}
           </span>
           <div
             className="flex h-3 min-w-0 flex-1 gap-[2px]"
