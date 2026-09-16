@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { Moon, Sun, Wrench } from "lucide-react"
 
 import { CountryFilter } from "@/components/CountryFilter"
@@ -7,6 +7,8 @@ import { Summary } from "@/components/Summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, useNodes, type Node } from "@/lib/api"
+import { sliceToBands, useQuality, type ProbeBands } from "@/lib/quality"
+import { readQualityOn, saveQualityOn } from "@/lib/quality-toggle"
 import { readView, saveView, type View } from "@/lib/view"
 
 type Me = { authed: boolean; github: boolean; site_name: string; public_page: boolean }
@@ -54,6 +56,9 @@ const VIEWS: { key: View; label: string }[] = [
   { key: "map", label: "地图" },
 ]
 
+/** Shared empty map: toggled on, but there is nothing to draw for any node. */
+const EMPTY_QUALITY = new Map<number, ProbeBands[]>()
+
 /**
  * The three browsing shapes of the fleet. The switcher sits above the country
  * chips -- both act on the list, so they belong to the same group. aria-pressed
@@ -76,6 +81,27 @@ function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => voi
         </button>
       ))}
     </div>
+  )
+}
+
+/**
+ * The quality band's on/off switch. Hidden by default and off on a first visit
+ * (R6): turning it on is what starts the batch fetch, so an anonymous visitor
+ * who never asks for it never costs the hub a query (R5). It sits with the view
+ * switcher because both act on the list.
+ */
+function QualitySwitch({ on, onChange }: { on: boolean; onChange: (next: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={() => onChange(!on)}
+      className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+        on ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+      }`}
+    >
+      网络质量
+    </button>
   )
 }
 
@@ -124,6 +150,28 @@ export default function App() {
     saveView(next)
     setView(next)
   }, [])
+
+  const [qualityOn, setQualityOn] = useState(readQualityOn)
+  const switchQuality = useCallback((next: boolean) => {
+    saveQualityOn(next)
+    setQualityOn(next)
+  }, [])
+  // The hook only fetches while the toggle is on, so off costs the hub nothing
+  // (R5). `data` is held across refreshes, so a slow poll never blanks the bands.
+  const { data: qualityData, loading: qualityLoading, error: qualityError } = useQuality(qualityOn)
+  const qualityByNode = useMemo(() => {
+    if (!qualityData) return null
+    const m = new Map<number, ProbeBands[]>()
+    for (const [id, slice] of Object.entries(qualityData)) m.set(Number(id), sliceToBands(slice))
+    return m
+  }, [qualityData])
+  // One value, three meanings the band component reads directly:
+  // undefined = toggle off, null = first fetch in flight, Map = data ready.
+  // A first fetch that failed leaves nothing to draw, so it reads as "no bands"
+  // rather than a skeleton that never resolves.
+  const quality = !qualityOn
+    ? undefined
+    : qualityByNode ?? (qualityLoading && !qualityError ? null : EMPTY_QUALITY)
 
   const loadMe = useCallback(() => {
     // `|| "..."` because an empty message reads as no error: api() falls back to
@@ -231,7 +279,8 @@ export default function App() {
               <CountryFilter nodes={sorted} selected={country} onChange={setCountry} />
               {/* ml-auto 而非 justify-between：chip 行换行或过滤器缺席（无国家
                   数据时渲染 null）时，切换控件仍钉在右侧。 */}
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-1">
+                <QualitySwitch on={qualityOn} onChange={switchQuality} />
                 <ViewSwitch view={view} onChange={switchView} />
               </div>
             </div>
@@ -243,7 +292,7 @@ export default function App() {
               </p>
             ) : view === "table" ? (
               <Suspense fallback={<ViewSkeleton view="table" />}>
-                <NodeTable nodes={visible} onOpen={go} />
+                <NodeTable nodes={visible} onOpen={go} quality={quality} />
               </Suspense>
             ) : view === "map" ? (
               <Suspense fallback={<ViewSkeleton view="map" />}>
@@ -252,7 +301,18 @@ export default function App() {
             ) : (
               <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {visible.map((n: Node) => (
-                  <NodeCard key={n.id} node={n} onOpen={() => go(n.id)} />
+                  <NodeCard
+                    key={n.id}
+                    node={n}
+                    onOpen={() => go(n.id)}
+                    quality={
+                      quality === undefined
+                        ? undefined
+                        : quality === null
+                          ? null
+                          : (quality.get(n.id) ?? [])
+                    }
+                  />
                 ))}
               </div>
             )}

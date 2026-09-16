@@ -3,8 +3,10 @@ import { ArrowDown, ArrowUp } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Meter } from "@/components/Meter"
+import { QualitySlot } from "@/components/QualityBand"
 import type { Node } from "@/lib/api"
 import { bytes, countryToFlag, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
+import type { ProbeBands } from "@/lib/quality"
 import { monthUsage, trafficFoot } from "@/lib/traffic"
 import { cn } from "@/lib/utils"
 
@@ -69,7 +71,16 @@ function Expiry({ node }: { node: Node }) {
   )
 }
 
-export function NodeCard({ node, onOpen }: { node: Node; onOpen: () => void }) {
+export function NodeCard({
+  node,
+  onOpen,
+  quality,
+}: {
+  node: Node
+  onOpen: () => void
+  /** Network quality bands: undefined = toggle off, null = loading, [] = no probe. */
+  quality?: ProbeBands[] | null
+}) {
   const m = node.metrics
 
   return (
@@ -152,6 +163,16 @@ export function NodeCard({ node, onOpen }: { node: Node; onOpen: () => void }) {
               {bytes(node.total_tx)}
             </span>
           </div>
+
+          {/* Quality bands sit below the live figures: they answer a different
+              question ("how has the line been") than the instantaneous rates
+              above. The wrapper is skipped entirely when there is nothing to
+              draw, so the card keeps its height whether or not probes exist. */}
+          {quality !== undefined && (quality === null || quality.length > 0) && (
+            <div className="mt-4 border-t pt-4">
+              <QualitySlot quality={quality} />
+            </div>
+          )}
         </>
       ) : (
         /* Never connected: nothing to plot, so the card stays short rather than

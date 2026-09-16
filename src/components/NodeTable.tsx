@@ -1,8 +1,10 @@
 import { ArrowDown, ArrowUp } from "lucide-react"
 
 import { Country, Status } from "@/components/NodeCard"
+import { QualitySlot } from "@/components/QualityBand"
 import type { Node } from "@/lib/api"
 import { pair, rate, uptime } from "@/lib/format"
+import type { ProbeBands } from "@/lib/quality"
 import { trafficFoot } from "@/lib/traffic"
 
 /** The columns after identity (name/country/status) — one source for header and cells. */
@@ -57,8 +59,20 @@ function MetricCell({ node, metric }: { node: Node; metric: Metric }): React.Rea
  * The fleet as one row per node, for comparing machines against each other —
  * what the card grid's independent layouts make hard. Column count is fixed;
  * a phone pans horizontally rather than dropping the comparison (KTD7).
+ *
+ * With the quality toggle on, a band column joins the row (R2), rendering the
+ * same component the cards use so the two views cannot drift (KTD4).
  */
-export function NodeTable({ nodes, onOpen }: { nodes: Node[]; onOpen: (id: number) => void }) {
+export function NodeTable({
+  nodes,
+  onOpen,
+  quality,
+}: {
+  nodes: Node[]
+  onOpen: (id: number) => void
+  /** Per-node bands: undefined = toggle off, null = loading, missing id = no probe. */
+  quality?: Map<number, ProbeBands[]> | null
+}) {
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full min-w-[860px] border-collapse text-sm">
@@ -67,6 +81,7 @@ export function NodeTable({ nodes, onOpen }: { nodes: Node[]; onOpen: (id: numbe
             <th className="px-3 py-2 font-medium">名称</th>
             <th className="px-3 py-2 font-medium">国家</th>
             <th className="px-3 py-2 font-medium">状态</th>
+            {quality !== undefined && <th className="px-3 py-2 font-medium">网络质量</th>}
             {COLS.map((col) => (
               <th key={col.key} className="px-3 py-2 font-medium">
                 {col.label}
@@ -91,6 +106,13 @@ export function NodeTable({ nodes, onOpen }: { nodes: Node[]; onOpen: (id: numbe
               <td className="px-3 py-2">
                 <Status node={node} />
               </td>
+              {/* Fixed width: every row's band spans the same track, so the
+                  columns to its right stay aligned across rows. */}
+              {quality !== undefined && (
+                <td className="w-72 min-w-56 px-3 py-2 align-middle">
+                  <QualitySlot quality={quality === null ? null : (quality.get(node.id) ?? [])} />
+                </td>
+              )}
               {COLS.map((col) => (
                 <td key={col.key} className="whitespace-nowrap px-3 py-2">
                   <MetricCell node={node} metric={col.key} />
