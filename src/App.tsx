@@ -6,6 +6,7 @@ import { NodeCard } from "@/components/NodeCard"
 import { Summary } from "@/components/Summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
 import { api, useNodes, type Node } from "@/lib/api"
 import { bandsFor, qualityViewState, useQuality } from "@/lib/quality"
 import { readQualityOn, saveQualityOn } from "@/lib/quality-toggle"
@@ -82,23 +83,18 @@ function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => voi
 }
 
 /**
- * The quality band's on/off switch. Hidden by default and off on a first visit
- * (R6): turning it on is what starts the batch fetch, so an anonymous visitor
- * who never asks for it never costs the hub a query (R5). It sits with the view
- * switcher because both act on the list.
+ * The quality band's on/off switch. Off on a first visit (R6): turning it on is
+ * what starts the batch fetch, so an anonymous visitor who never asks for it
+ * never costs the hub a query (R5). It sits with the view switcher because both
+ * act on the list. The label wraps the control so the text is part of the hit
+ * area and names the switch for screen readers.
  */
 function QualitySwitch({ on, onChange }: { on: boolean; onChange: (next: boolean) => void }) {
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={() => onChange(!on)}
-      className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-        on ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-      }`}
-    >
+    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
       网络质量
-    </button>
+      <Switch checked={on} onCheckedChange={onChange} />
+    </label>
   )
 }
 
@@ -266,8 +262,9 @@ export default function App() {
             <div className="flex flex-wrap items-center gap-2">
               <CountryFilter nodes={sorted} selected={country} onChange={setCountry} />
               {/* ml-auto 而非 justify-between：chip 行换行或过滤器缺席（无国家
-                  数据时渲染 null）时，切换控件仍钉在右侧。 */}
-              <div className="ml-auto flex items-center gap-1">
+                  数据时渲染 null）时，切换控件仍钉在右侧。gap-2 让带文字标签的
+                  质量开关与视图分段按钮之间不至于挤在一起。 */}
+              <div className="ml-auto flex items-center gap-2">
                 <QualitySwitch on={qualityOn} onChange={switchQuality} />
                 <ViewSwitch view={view} onChange={switchView} />
               </div>
