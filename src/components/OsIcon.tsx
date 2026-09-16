@@ -31,7 +31,7 @@ export function OsIcon({ os, title, className }: { os: string; title?: string; c
           strokeLinejoin="round"
         />
       ) : (
-        <path d={mark.d} fill="currentColor" fillRule={mark.evenodd ? "evenodd" : "nonzero"} />
+        <path d={mark.d} fill="currentColor" />
       )}
     </svg>
   )

@@ -123,16 +123,13 @@ function Fact({ label, value, icon }: { label: string; value?: string | number |
   return (
     <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      {/* 只有带图标的项走 flex：其余项保持原来的纯文本 dd，布局一个像素都不动。 */}
-      <dd className="truncate text-sm">
-        {icon ? (
-          <span className="inline-flex items-center gap-1.5">
-            {icon}
-            {value}
-          </span>
-        ) : (
-          value
-        )}
+      {/* 带图标的一项走 flex，与卡片副标题同一套：图标固定、文字单独截断。
+          这正是兄弟项那行 dd 的形状——图标 14px 低于 text-sm 的行高 20px，所以
+          行高不变、基线不动。先前那种把两者包进一个 inline-flex 的写法会让这一格
+          高出 2px，且原子内联盒溢出时只裁不补省略号。 */}
+      <dd className={icon ? "flex items-center gap-1.5 truncate text-sm" : "truncate text-sm"}>
+        {icon}
+        {icon ? <span className="truncate">{value}</span> : value}
       </dd>
     </div>
   )
