@@ -60,8 +60,10 @@ export type ProbeSeries = { id: number; name: string; points: PingPoint[]; loss:
  *   contributes nothing to that window — an empty strip carries no information
  *   and would otherwise render as a bare name. This is what R4's blank means.
  *
- * `loss` is lifted from `slice.loss` by id (the whole-window proportion), so the
- * detail page's badge has it without re-indexing; the band does not use it.
+ * `loss` is lifted from `slice.loss` by id (the whole-window proportion) so both
+ * readers get it without re-indexing their own copy: the detail page's badge and
+ * the band row's loss cell. That whole-window scope is therefore shared -- moving
+ * it (say, to the chart's visible range) would change both figures at once.
  */
 export function groupByProbe(slice: QualitySlice): ProbeSeries[] {
   const ids = new Set<number>()
@@ -178,6 +180,24 @@ export function medianLatency(points: PingPoint[]): number | null {
 /** The band row's latency cell. Compact, since it sits inside a card. */
 export function latencyText(ms: number | null): string {
   return ms === null ? "超时" : `${Math.round(ms)}ms`
+}
+
+/**
+ * The two figures a band row prints, in the order the row shows them. Extracted
+ * from the JSX so the "a probe that lost nothing prints no loss cell" branch is
+ * pinned by a test: `lossText(0)` reads 丢 <1%, a *has-loss* string, so dropping
+ * the guard would label a clean probe as lossy -- and no rendering test exists
+ * to catch it, since this repo has no DOM.
+ *
+ * `probe.loss` is the whole window's proportion while `medianLatency` summarises
+ * the points; both therefore describe the same window, which is what lets the
+ * row's two cells sit beside one strip.
+ */
+export function rowFigures(probe: ProbeSeries): { latency: string; loss: string } {
+  return {
+    latency: latencyText(medianLatency(probe.points)),
+    loss: probe.loss > 0 ? lossText(probe.loss) : "",
+  }
 }
 
 /**

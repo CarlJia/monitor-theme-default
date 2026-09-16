@@ -296,7 +296,7 @@ export function NodeDetail({ node }: { node: Node }) {
       <dl className="grid gap-x-6 gap-y-3 md:grid-cols-2 lg:grid-cols-3">
         <Fact
           label="系统"
-          icon={node.os ? <OsIcon os={node.os} className="text-muted-foreground" /> : undefined}
+          icon={node.os ? <OsIcon os={node.os} /> : undefined}
           value={[osName(node.os), node.kernel].filter(Boolean).join(" · ")}
         />
         <Fact

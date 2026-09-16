@@ -15,10 +15,13 @@ import {
   pointQuality,
   qualityReducer,
   qualityViewState,
+  rowFigures,
   startQualityPolling,
   THRESHOLDS,
   tooltipText,
   worse,
+  type PingPoint,
+  type ProbeSeries,
   type Quality,
   type QualityEvent,
   type QualitySlice,
@@ -174,11 +177,32 @@ assert.equal(medianLatency([bucket(null), bucket(-1)]), null, "nothing answered 
 assert.equal(medianLatency([]), null, "an empty window has no median")
 // Loss is the other cell's business; it must not leak into the latency figure.
 assert.equal(medianLatency([{ task_id: 1, ts: 0, latency: 10, loss: 90 }, bucket(30)]), 20, "loss does not move the median")
+// Real readings cross 100ms, where JS's default `sort()` compares strings:
+// [100, 2, 30] would stay put and the "middle" would be 2ms. Both cases below
+// only hold with the numeric comparator, so deleting it turns them red.
+assert.equal(medianLatency([bucket(100), bucket(2), bucket(30)]), 30, "three-digit readings sort numerically, not as text")
+assert.equal(medianLatency([bucket(100), bucket(2), bucket(30), bucket(9)]), 19.5, "even count across magnitudes averages the two numeric middles")
 
 // latencyText: 超时 is the same word the hover card uses for the same window.
 assert.equal(latencyText(52), "52ms", "whole ms")
 assert.equal(latencyText(52.6), "53ms", "rounds like the hover card")
 assert.equal(latencyText(null), "超时", "a window that never answered")
+
+// rowFigures: the band row's two cells. They live here rather than in the JSX
+// because this repo has no DOM, so the render path is untestable and the
+// "prints nothing when nothing was lost" branch would otherwise be unpinned.
+const series = (points: PingPoint[], loss: number): ProbeSeries => ({ id: 1, name: "home", points, loss })
+assert.deepEqual(
+  rowFigures(home),
+  { latency: "200ms", loss: "丢 4%" },
+  "the row's two cells, off the same fixture the fold is tested with",
+)
+// `lossText(0)` reads 丢 <1% -- a *has-loss* string -- so a dropped or loosened
+// guard (`>= 0`, or calling lossText unconditionally) would label a clean probe
+// as lossy.
+assert.equal(rowFigures(series([bucket(80)], 0)).loss, "", "a probe that lost nothing prints no loss cell")
+assert.equal(rowFigures(series([bucket(80)], 0.4)).loss, "丢 <1%", "any real loss still prints, sub-1% included")
+assert.equal(rowFigures(series([bucket(null), bucket(-1)], 0)).latency, "超时", "a window that never answered prints 超时, not a blank cell")
 
 // batchToSeries: the tri-state vocabulary a single value carries.
 assert.equal(batchToSeries(undefined), undefined, "undefined -> undefined (off)")

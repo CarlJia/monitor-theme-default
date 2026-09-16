@@ -3,7 +3,7 @@
 // Run with `npm test`: Node strips the types itself.
 import assert from "node:assert/strict"
 
-import { OS_MARKS, osMark, type OsMark } from "./os.ts"
+import { OS_MARKS, osColors, osMark, type OsMark } from "./os.ts"
 
 // The spellings the hub actually reports. "GNU/Linux" rides along on nearly all
 // of them, so a rule matching on the loose word "linux" would swallow the fleet.
@@ -96,14 +96,20 @@ const contrast = (a: string, b: string) => {
 }
 const HEX = /^#[0-9a-f]{6}$/i
 
+// 深浅两色这一对由 osColors 统一给出，组件只把它填进 CSS 变量，自己不再做任何取色。
+// 所以这里断言的是那对返回值本身：有暗色变体的家族用它，没有的（16 个里 8 个）必须
+// 回落到品牌原色而非 undefined——深色卡片上那 8 枚标全靠这条兜底才留得下来。
+assert.deepEqual(osColors("ubuntu"), { light: "#E95420", dark: "#E95420" }, "无暗色变体时回落到品牌原色")
+assert.deepEqual(osColors("macos"), { light: "#000000", dark: "#707070" }, "有暗色变体时用它")
+
 for (const [name, mark] of Object.entries(OS_MARKS)) {
   assert.match(mark.color, HEX, `${name} 配了品牌色`)
   if (mark.darkColor) assert.match(mark.darkColor, HEX, `${name} 的暗色变体是合法色值`)
-  assert.ok(
-    contrast(mark.darkColor ?? mark.color, CARD.dark) >= 3,
-    `${name} 在深色卡片上看得见（>=3:1）`,
-  )
-  assert.ok(contrast(mark.color, CARD.light) >= 2, `${name} 在白色卡片上不是一片留白`)
+  // 对比度走 osColors 而不是就地再写一遍 `?? color`：写一遍等于断言数据表而不是组件
+  // 真正走的那条表达式，兜底哪天被删，8 枚标在深色卡片上一起消失，这里仍然是绿的。
+  const { light, dark } = osColors(name as OsMark)
+  assert.ok(contrast(dark, CARD.dark) >= 3, `${name} 在深色卡片上看得见（>=3:1）`)
+  assert.ok(contrast(light, CARD.light) >= 2, `${name} 在白色卡片上不是一片留白`)
 }
 
 console.log("os 校验通过")

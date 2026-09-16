@@ -2,7 +2,7 @@ import { useState } from "react"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import type { ProbeSeries, Quality } from "@/lib/quality"
-import { pointQuality, tooltipText, latencyText, lossText, medianLatency } from "@/lib/quality"
+import { pointQuality, tooltipText, rowFigures } from "@/lib/quality"
 import { cn } from "@/lib/utils"
 
 /**
@@ -46,52 +46,65 @@ export function QualitySlot({ quality, className }: { quality?: ProbeSeries[] | 
   if (quality === null) {
     return (
       <div className={className}>
-        <Skeleton className="h-3 w-full" />
+        {/* One row's worth, in a ready row's own shape and spacing: a label line
+            and a full-width strip. The probe count is not knowable before the
+            first frame lands, so one row is the honest placeholder; matching the
+            ready height is what keeps the card from growing (and its row-mates
+            from reflowing) when that frame arrives. `h-4` is the label's
+            `text-xs` line box -- 12px type on 1rem leading -- not a guess. */}
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="mt-1 h-3 w-full" />
       </div>
     )
   }
   if (quality.length === 0) return null
 
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      {quality.map((probe) => (
-        <div key={probe.id} className="min-w-0">
-          {/* Label line, then the strip across the full width beneath it -- the
-              same shape as the card's own meter rows. Side by side is what the
-              strip cannot afford: 60 buckets (the hub's one-hour window at a
-              minute a bucket) with the 2px seam R1 asks for need ~178px, and
-              three cells beside it leave the strip 87px, which spilled the
-              strip past the card's edge. The two figures are fixed-width so
-              they line up down the column. */}
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="truncate text-xs text-muted-foreground" title={probe.name}>
-              {probe.name}
-            </span>
-            <span className="flex shrink-0 items-baseline text-xs text-muted-foreground">
-              <span className="tnum w-12 text-right">{latencyText(medianLatency(probe.points))}</span>
-              <span className="tnum w-14 text-right">{probe.loss > 0 ? lossText(probe.loss) : ""}</span>
-            </span>
+    // The between-row gap must stay visibly wider than the gap inside a row
+    // (the strip's `mt-1`), or nothing binds a strip to the label above it and
+    // the reader has to infer the pairing from order alone.
+    <div className={cn("flex flex-col gap-3", className)}>
+      {quality.map((probe) => {
+        const figures = rowFigures(probe)
+        return (
+          <div key={probe.id} className="min-w-0">
+            {/* Label line, then the strip across the full width beneath it -- the
+                same shape as the card's own meter rows. Side by side is what the
+                strip cannot afford: 60 buckets (the hub's one-hour window at a
+                minute a bucket) with the 2px seam R1 asks for need ~178px, and
+                three cells beside it leave the strip 87px, which spilled the
+                strip past the card's edge. The two figures are fixed-width so
+                they line up down the column. */}
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="truncate text-xs text-muted-foreground" title={probe.name}>
+                {probe.name}
+              </span>
+              <span className="flex shrink-0 items-baseline text-xs text-muted-foreground">
+                <span className="tnum w-12 text-right">{figures.latency}</span>
+                <span className="tnum w-14 text-right">{figures.loss}</span>
+              </span>
+            </div>
+            <div
+              className="mt-1 flex h-3 w-full gap-[2px]"
+              onMouseLeave={() => setHover(null)}
+            >
+              {probe.points.map((p, i) => (
+                <span
+                  key={i}
+                  // No minimum width: a window or a card the strip does not fit
+                  // should make it denser, never wider than the box it lives in.
+                  className="min-w-0 flex-1"
+                  style={{ background: FILL[pointQuality(p)] }}
+                  onMouseEnter={(e) => setHover({ x: e.clientX, y: e.clientY, text: tooltipText(p) })}
+                  onMouseMove={(e) =>
+                    setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))
+                  }
+                />
+              ))}
+            </div>
           </div>
-          <div
-            className="mt-1.5 flex h-3 w-full gap-[2px]"
-            onMouseLeave={() => setHover(null)}
-          >
-            {probe.points.map((p, i) => (
-              <span
-                key={i}
-                // No minimum width: a window or a card the strip does not fit
-                // should make it denser, never wider than the box it lives in.
-                className="min-w-0 flex-1"
-                style={{ background: FILL[pointQuality(p)] }}
-                onMouseEnter={(e) => setHover({ x: e.clientX, y: e.clientY, text: tooltipText(p) })}
-                onMouseMove={(e) =>
-                  setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))
-                }
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+        )
+      })}
 
       {hover && <Tip {...hover} />}
     </div>

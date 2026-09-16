@@ -148,3 +148,17 @@ export const OS_MARKS: Record<OsMark, Mark> = {
     darkColor: "#94A3B8",
   },
 }
+
+/**
+ * 一枚标在浅色与深色两种底上各自的颜色。
+ *
+ * 这一对必须从同一个地方出来：缺 darkColor 的家族（16 个里有 8 个）在深色底上完全
+ * 靠 `?? color` 兜底，而深色主题正是这些家族最容易被画没的场景（见上面 darkColor 的
+ * 说明）。兜底写在这里、测试也断言这里，组件只负责把返回值填进 CSS 变量——否则测试
+ * 只能把 `??` 重抄一遍，抄的是数据表而不是组件真正走的那条表达式，哪天兜底被删掉，
+ * 8 枚标在深色卡片上一起消失，测试却仍然是绿的。
+ */
+export function osColors(key: OsMark): { light: string; dark: string } {
+  const mark = OS_MARKS[key]
+  return { light: mark.color, dark: mark.darkColor ?? mark.color }
+}
