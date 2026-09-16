@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Meter } from "@/components/Meter"
+import { OsIcon } from "@/components/OsIcon"
 import { QualitySlot } from "@/components/QualityBand"
 import type { Node } from "@/lib/api"
 import { bytes, countryToFlag, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
@@ -82,6 +83,9 @@ export function NodeCard({
   quality?: ProbeSeries[] | null
 }) {
   const m = node.metrics
+  // 发行版名交给图标，虚拟化与架构留在文字里：这两者没有能一眼认出的标志，
+  // 缩成图标只会变成两个分不清的方块。
+  const spec = [node.virt && node.virt !== "none" ? node.virt : "", node.arch].filter(Boolean).join(" · ")
 
   return (
     <Card
@@ -101,10 +105,15 @@ export function NodeCard({
             <h3 className="truncate font-medium">{node.name}</h3>
             <Country node={node} />
           </div>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {node.os ? osName(node.os) : "等待首次上报"}
-            {node.virt && node.virt !== "none" ? ` · ${node.virt}` : ""}
-            {node.arch ? ` · ${node.arch}` : ""}
+          <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            {node.os ? (
+              <>
+                <OsIcon os={node.os} title={osName(node.os)} />
+                {spec && <span className="truncate">{spec}</span>}
+              </>
+            ) : (
+              <span className="truncate">等待首次上报</span>
+            )}
           </p>
         </div>
         {/* State right, identity left, one line each. */}

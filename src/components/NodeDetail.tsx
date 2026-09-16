@@ -8,6 +8,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Country, Status } from "@/components/NodeCard"
+import { OsIcon } from "@/components/OsIcon"
 import { api, type Node } from "@/lib/api"
 import {
   axisBytes, axisTop, bytes, clockFor, quarters, cpuName, CYCLES, FOREVER, money, osName, rate, timeTicks,
@@ -117,12 +118,22 @@ function despike(points: PingPoint[], window = 7, sigmas = 3): PingPoint[] {
   })
 }
 
-function Fact({ label, value }: { label: string; value?: string | number | null }) {
+function Fact({ label, value, icon }: { label: string; value?: string | number | null; icon?: React.ReactNode }) {
   if (value === null || value === undefined || value === "") return null
   return (
     <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="truncate text-sm">{value}</dd>
+      {/* 只有带图标的项走 flex：其余项保持原来的纯文本 dd，布局一个像素都不动。 */}
+      <dd className="truncate text-sm">
+        {icon ? (
+          <span className="inline-flex items-center gap-1.5">
+            {icon}
+            {value}
+          </span>
+        ) : (
+          value
+        )}
+      </dd>
     </div>
   )
 }
@@ -286,7 +297,11 @@ export function NodeDetail({ node }: { node: Node }) {
           just a box. Three across at lg, two at md, one on a phone -- a kernel
           version or a CPU model needs about 270px to stay whole. */}
       <dl className="grid gap-x-6 gap-y-3 md:grid-cols-2 lg:grid-cols-3">
-        <Fact label="系统" value={[osName(node.os), node.kernel].filter(Boolean).join(" · ")} />
+        <Fact
+          label="系统"
+          icon={node.os ? <OsIcon os={node.os} className="text-muted-foreground" /> : undefined}
+          value={[osName(node.os), node.kernel].filter(Boolean).join(" · ")}
+        />
         <Fact
           label="CPU"
           value={node.cpu_name ? `${cpuName(node.cpu_name)} × ${node.cpu_cores}` : `${node.cpu_cores} 核`}
