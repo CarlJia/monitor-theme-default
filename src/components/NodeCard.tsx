@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Meter } from "@/components/Meter"
+import { OsIcon } from "@/components/OsIcon"
 import { QualitySlot } from "@/components/QualityBand"
 import type { Node } from "@/lib/api"
 import { bytes, countryToFlag, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
@@ -82,6 +83,9 @@ export function NodeCard({
   quality?: ProbeSeries[] | null
 }) {
   const m = node.metrics
+  // 发行版名交给图标，虚拟化与架构留在文字里：这两者没有能一眼认出的标志，
+  // 缩成图标只会变成两个分不清的方块。
+  const spec = [node.virt && node.virt !== "none" ? node.virt : "", node.arch].filter(Boolean).join(" · ")
 
   return (
     <Card
@@ -101,10 +105,26 @@ export function NodeCard({
             <h3 className="truncate font-medium">{node.name}</h3>
             <Country node={node} />
           </div>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {node.os ? osName(node.os) : "等待首次上报"}
-            {node.virt && node.virt !== "none" ? ` · ${node.virt}` : ""}
-            {node.arch ? ` · ${node.arch}` : ""}
+          <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            {node.os ? (
+              <>
+                <OsIcon os={node.os} title={osName(node.os)} />
+                {/* 图标把发行版名换掉了，而 svg 的 title 只在悬停时出现——触屏
+                    永远不会悬停，光看标志也分不出两个都没收录的发行版。所以悬停
+                    拿不到的那类设备上把名字补回文字。它与图标承担的是同一个名字，
+                    读屏只该听见一次，因此对无障碍隐藏。 */}
+                <span aria-hidden="true" className="hidden truncate pointer-coarse:inline">
+                  {osName(node.os)}
+                </span>
+              </>
+            ) : (
+              /* 一句话都没有才写「等待首次上报」：os 没读到、架构却报上来了时，
+                 写成「等待首次上报 · x86_64」是自相矛盾的。 */
+              !spec && <span className="truncate">等待首次上报</span>
+            )}
+            {/* virt/arch 单独渲染：它们与 os 同属一次上报，但只在 os 缺席时一并
+                丢掉这两个字段，等于凭一个字段的缺失抹掉另外两个。 */}
+            {spec && <span className="truncate">{spec}</span>}
           </p>
         </div>
         {/* State right, identity left, one line each. */}

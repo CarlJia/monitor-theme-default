@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "node src/lib/format.test.ts && node src/lib/api.test.ts && node src/lib/view.test.ts && node src/lib/traffic.test.ts && node src/lib/geo.test.ts && node src/lib/map-aggregate.test.ts && node src/lib/quality.test.ts && node src/lib/quality-toggle.test.ts",
+    "test": "node src/lib/format.test.ts && node src/lib/api.test.ts && node src/lib/view.test.ts && node src/lib/traffic.test.ts && node src/lib/geo.test.ts && node src/lib/map-aggregate.test.ts && node src/lib/quality.test.ts && node src/lib/quality-toggle.test.ts && node src/lib/os.test.ts",
     "preview": "vite preview",
     "package-theme": "node scripts/package-theme.mjs"
   },
@@ -23,6 +23,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "recharts": "^3.10.1",
+    "simple-icons": "^16.31.0",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
     "topojson-client": "^3.1.0",
