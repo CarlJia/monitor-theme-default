@@ -109,6 +109,10 @@ export function NodeCard({
             {node.os ? (
               <>
                 <OsIcon os={node.os} title={osName(node.os)} />
+                {/* 图标把发行版名换掉了，而 svg 的 title 只在悬停时出现——触屏
+                    永远不会悬停，光看标志也分不出 openSUSE、Gentoo 与兜底的那
+                    枚终端图。所以指针悬停拿不到的那类设备上把名字补回文字。 */}
+                <span className="hidden truncate pointer-coarse:inline">{osName(node.os)}</span>
                 {spec && <span className="truncate">{spec}</span>}
               </>
             ) : (

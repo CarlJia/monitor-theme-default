@@ -17,9 +17,7 @@ import {
  * The hub reports whatever the agent read from /etc/os-release, so the same
  * family arrives spelled a dozen ways -- "Debian GNU/Linux 12 (bookworm)",
  * "Debian 12", "Kali GNU/Linux 2023.3". Matching is therefore on the family
- * word rather than the whole string, and the order below is load-bearing: every
- * RHEL rebuild prints "Linux" as well, so it must be claimed before the generic
- * rule.
+ * word rather than the whole string, and first match wins.
  *
  * A distribution without a logo here is not an error -- it draws `generic`,
  * which is the honest answer for "some Unix we have no mark for".
@@ -38,7 +36,7 @@ export type OsMark =
   | "almalinux"
   | "generic"
 
-// First match wins, so this is ordered from most to least specific.
+// First match wins; unclaimed strings fall through to `generic`.
 const RULES: [RegExp, OsMark][] = [
   [/windows/, "windows"],
   [/mac ?os|darwin|apple/, "macos"],
@@ -58,7 +56,6 @@ const RULES: [RegExp, OsMark][] = [
   // not by anything a 14px mark can say, and simple-icons carries no mark for
   // Oracle or Amazon Linux at all.
   [/red ?hat|rhel|oracle|amazon|amzn/, "redhat"],
-  [/linux|bsd|unix/, "generic"],
 ]
 
 export function osMark(os: string): OsMark {
