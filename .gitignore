@@ -32,3 +32,6 @@ theme.tar.gz.sha256
 /docs/
 /CLAUDE.md
 /.claude/
+
+# ce-prototype 原型与决策胶囊，属本地临时产物
+/.context/compound-engineering/
