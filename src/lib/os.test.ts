@@ -81,4 +81,29 @@ for (const [family, sample] of Object.entries(SAMPLE)) {
   assert.equal(osMark(sample), family, `${family} 有规则指向它`)
 }
 
+// 彩色标的可读性。品牌原色在浅色底上够用（logo 本就不受 WCAG 文本对比约束，
+// 所以这里只挡「白底上看不见」这一种），真正会踩的是深色主题：CentOS 的 #262577
+// 与 Apple / AlmaLinux 的 #000000 在黑卡片上等于没画图标。深底这条线是硬要求。
+const CARD = { light: "#ffffff", dark: "#161616" } // --card: oklch(1 0 0) / oklch(0.2 0 0)
+const channel = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+const luminance = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => channel(parseInt(hex.slice(i, i + 2), 16) / 255))
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+const contrast = (a: string, b: string) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+const HEX = /^#[0-9a-f]{6}$/i
+
+for (const [name, mark] of Object.entries(OS_MARKS)) {
+  assert.match(mark.color, HEX, `${name} 配了品牌色`)
+  if (mark.darkColor) assert.match(mark.darkColor, HEX, `${name} 的暗色变体是合法色值`)
+  assert.ok(
+    contrast(mark.darkColor ?? mark.color, CARD.dark) >= 3,
+    `${name} 在深色卡片上看得见（>=3:1）`,
+  )
+  assert.ok(contrast(mark.color, CARD.light) >= 2, `${name} 在白色卡片上不是一片留白`)
+}
+
 console.log("os 校验通过")

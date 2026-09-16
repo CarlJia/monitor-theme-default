@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react"
+
 import { OS_MARKS, osMark } from "@/lib/os"
 import { cn } from "@/lib/utils"
 
@@ -11,6 +13,11 @@ import { cn } from "@/lib/utils"
  * decorative instead -- announced twice is worse than not at all. A card that
  * prints the name only where the tooltip cannot be reached keeps this title and
  * hides that copy from the screen reader, so the name is still announced once.
+ *
+ * The mark wears the vendor's own colour. Both grounds' values ride on the
+ * element as custom properties and CSS picks between them, so the theme toggle
+ * re-colours it without this component ever reading the theme -- the same trick
+ * the map's colours use.
  */
 export function OsIcon({ os, title, className }: { os: string; title?: string; className?: string }) {
   const mark = OS_MARKS[osMark(os)]
@@ -20,6 +27,7 @@ export function OsIcon({ os, title, className }: { os: string; title?: string; c
       role={title ? "img" : undefined}
       aria-hidden={title ? undefined : true}
       aria-label={title}
+      style={{ "--os": mark.color, "--os-dark": mark.darkColor ?? mark.color } as CSSProperties}
       className={cn("size-3.5 shrink-0", className)}
     >
       {title && <title>{title}</title>}
@@ -27,13 +35,13 @@ export function OsIcon({ os, title, className }: { os: string; title?: string; c
         <path
           d={mark.d}
           fill="none"
-          stroke="currentColor"
           strokeWidth={mark.stroke}
           strokeLinecap="round"
           strokeLinejoin="round"
+          className="stroke-[var(--os)] dark:stroke-[var(--os-dark)]"
         />
       ) : (
-        <path d={mark.d} fill="currentColor" />
+        <path d={mark.d} className="fill-[var(--os)] dark:fill-[var(--os-dark)]" />
       )}
     </svg>
   )
