@@ -7,7 +7,7 @@ import { Summary } from "@/components/Summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, useNodes, type Node } from "@/lib/api"
-import { sliceToBands, useQuality, type ProbeBands } from "@/lib/quality"
+import { bandsFor, batchToSeries, useQuality, type ProbeSeries } from "@/lib/quality"
 import { readQualityOn, saveQualityOn } from "@/lib/quality-toggle"
 import { readView, saveView, type View } from "@/lib/view"
 
@@ -57,7 +57,7 @@ const VIEWS: { key: View; label: string }[] = [
 ]
 
 /** Shared empty map: toggled on, but there is nothing to draw for any node. */
-const EMPTY_QUALITY = new Map<number, ProbeBands[]>()
+const EMPTY_QUALITY = new Map<number, ProbeSeries[]>()
 
 /**
  * The three browsing shapes of the fleet. The switcher sits above the country
@@ -159,12 +159,7 @@ export default function App() {
   // The hook only fetches while the toggle is on, so off costs the hub nothing
   // (R5). `data` is held across refreshes, so a slow poll never blanks the bands.
   const { data: qualityData, loading: qualityLoading, error: qualityError } = useQuality(qualityOn)
-  const qualityByNode = useMemo(() => {
-    if (!qualityData) return null
-    const m = new Map<number, ProbeBands[]>()
-    for (const [id, slice] of Object.entries(qualityData)) m.set(Number(id), sliceToBands(slice))
-    return m
-  }, [qualityData])
+  const qualityByNode = useMemo(() => batchToSeries(qualityData), [qualityData])
   // One value, three meanings the band component reads directly:
   // undefined = toggle off, null = first fetch in flight, Map = data ready.
   // A first fetch that failed leaves nothing to draw, so it reads as "no bands"
@@ -305,13 +300,7 @@ export default function App() {
                     key={n.id}
                     node={n}
                     onOpen={() => go(n.id)}
-                    quality={
-                      quality === undefined
-                        ? undefined
-                        : quality === null
-                          ? null
-                          : (quality.get(n.id) ?? [])
-                    }
+                    quality={bandsFor(quality, n.id)}
                   />
                 ))}
               </div>

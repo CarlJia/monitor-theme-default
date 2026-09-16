@@ -12,6 +12,7 @@ import { api, type Node } from "@/lib/api"
 import {
   axisBytes, axisTop, bytes, clockFor, quarters, cpuName, CYCLES, FOREVER, money, osName, rate, timeTicks,
 } from "@/lib/format"
+import { groupByProbe, type Loss, type PingPoint, type Probes } from "@/lib/quality"
 
 type Point = {
   ts: number
@@ -21,27 +22,6 @@ type Point = {
   net_rx: number
   net_tx: number
 }
-// `latency` is the bucket's median round trip, null when every probe in it timed
-// out. `band` is the range its answers spanned, absent when they spanned nothing.
-// `loss` is the percentage that timed out, absent when none did.
-type PingPoint = {
-  task_id: number
-  ts: number
-  latency: number | null
-  band?: [number, number]
-  loss?: number
-}
-/** Probe names by id, sent alongside the samples they label. */
-type Probes = Record<string, string>
-/**
- * Proportion of the whole window each probe lost, by id, absent for probes that
- * lost nothing. Sent because it cannot be derived here: every bucket's `loss` is
- * already a percentage of that bucket, so the sample counts it was divided by are
- * unavailable. Averaging them would weight a bucket holding one sample equally
- * with one holding twelve, and the window's first and last buckets are partial
- * regardless of what the probe does.
- */
-type Loss = Record<string, number>
 
 const RANGES = [
   { hours: 1, label: "1 小时" },
@@ -207,24 +187,10 @@ export function NodeDetail({ node }: { node: Node }) {
   // One series per probe that reported, labelled from the names the samples
   // arrived with. Memoised, as are the two below: the node prop changes every few
   // seconds as live metrics arrive, and rebuilding the chart's data array on those
-  // renders would reset the brush.
+  // renders would reset the brush. `groupByProbe` is the shared fold the band
+  // UI also consumes (src/lib/quality.ts), so the payload shape has one owner.
   const pingSeries = useMemo(
-    () =>
-      [...new Set((data?.ping ?? []).map((p) => p.task_id))]
-        .map((id) => {
-          // Timeouts are retained: dropping them would draw a probe losing half
-          // its packets as an unbroken line, and one that never answered not at
-          // all.
-          const points = (data?.ping ?? []).filter((p) => p.task_id === id)
-          // Taken from the hub rather than summed from the buckets above, each of
-          // which is already a percentage of its own bucket, so averaging them
-          // would report one lost round in thirteen as 50%. Left unrounded, since
-          // `Math.round` would render 0.28% and 0.00% as the same badge, and the
-          // absence of a badge denotes no loss.
-          const loss = data?.loss?.[id] ?? 0
-          return { id, name: data?.probes?.[id] ?? `探测 ${id}`, points, loss }
-        })
-        .filter((s) => s.points.length > 0),
+    () => (data ? groupByProbe(data).filter((s) => s.points.length > 0) : []),
     [data],
   )
 

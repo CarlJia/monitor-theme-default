@@ -6,7 +6,7 @@ import { Meter } from "@/components/Meter"
 import { QualitySlot } from "@/components/QualityBand"
 import type { Node } from "@/lib/api"
 import { bytes, countryToFlag, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
-import type { ProbeBands } from "@/lib/quality"
+import type { ProbeSeries } from "@/lib/quality"
 import { monthUsage, trafficFoot } from "@/lib/traffic"
 import { cn } from "@/lib/utils"
 
@@ -78,8 +78,8 @@ export function NodeCard({
 }: {
   node: Node
   onOpen: () => void
-  /** Network quality bands: undefined = toggle off, null = loading, [] = no probe. */
-  quality?: ProbeBands[] | null
+  /** Per-node series: undefined = toggle off, null = loading, [] = no probe. */
+  quality?: ProbeSeries[] | null
 }) {
   const m = node.metrics
 

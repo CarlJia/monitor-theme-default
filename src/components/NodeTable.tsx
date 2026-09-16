@@ -3,8 +3,8 @@ import { ArrowDown, ArrowUp } from "lucide-react"
 import { Country, Status } from "@/components/NodeCard"
 import { QualitySlot } from "@/components/QualityBand"
 import type { Node } from "@/lib/api"
+import { bandsFor, type ProbeSeries } from "@/lib/quality"
 import { pair, rate, uptime } from "@/lib/format"
-import type { ProbeBands } from "@/lib/quality"
 import { trafficFoot } from "@/lib/traffic"
 
 /** The columns after identity (name/country/status) — one source for header and cells. */
@@ -70,8 +70,8 @@ export function NodeTable({
 }: {
   nodes: Node[]
   onOpen: (id: number) => void
-  /** Per-node bands: undefined = toggle off, null = loading, missing id = no probe. */
-  quality?: Map<number, ProbeBands[]> | null
+  /** Per-node series: undefined = toggle off, null = loading, Map = data ready. */
+  quality?: Map<number, ProbeSeries[]> | null
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -110,7 +110,7 @@ export function NodeTable({
                   columns to its right stay aligned across rows. */}
               {quality !== undefined && (
                 <td className="w-72 min-w-56 px-3 py-2 align-middle">
-                  <QualitySlot quality={quality === null ? null : (quality.get(node.id) ?? [])} />
+                  <QualitySlot quality={bandsFor(quality, node.id)} />
                 </td>
               )}
               {COLS.map((col) => (
