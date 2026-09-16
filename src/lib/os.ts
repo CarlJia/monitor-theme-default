@@ -6,6 +6,10 @@ import {
   siCentos,
   siDebian,
   siFedora,
+  siFreebsd,
+  siGentoo,
+  siLinuxmint,
+  siOpensuse,
   siRedhat,
   siRockylinux,
   siUbuntu,
@@ -34,6 +38,10 @@ export type OsMark =
   | "redhat"
   | "rocky"
   | "almalinux"
+  | "suse"
+  | "gentoo"
+  | "mint"
+  | "bsd"
   | "generic"
 
 // First match wins; unclaimed strings fall through to `generic`.
@@ -52,6 +60,12 @@ const RULES: [RegExp, OsMark][] = [
   [/fedora/, "fedora"],
   [/rocky/, "rocky"],
   [/almalinux|alma/, "almalinux"],
+  [/suse/, "suse"],
+  [/gentoo/, "gentoo"],
+  [/\bmint/, "mint"],
+  // FreeBSD is spelled with the letters "bsd" mid-word, so the boundary cannot
+  // be used here; the three names are listed instead.
+  [/freebsd|openbsd|netbsd/, "bsd"],
   // One hat for the rest of the family: a rebuild differs from Red Hat by name,
   // not by anything a 14px mark can say, and simple-icons carries no mark for
   // Oracle or Amazon Linux at all.
@@ -82,7 +96,7 @@ type Mark = {
  * Two marks are drawn here instead, because simple-icons has no entry for
  * either: Windows (the Microsoft marks were withdrawn from the set) and the
  * generic fallback, which is deliberately a terminal rather than a penguin --
- * that answer is also the correct one for a BSD.
+ * a distribution we have no mark for is as often a BSD as a Linux.
  */
 export const OS_MARKS: Record<OsMark, Mark> = {
   // Four panes, slightly skewed, as the flag is drawn.
@@ -99,6 +113,11 @@ export const OS_MARKS: Record<OsMark, Mark> = {
   redhat: { d: siRedhat.path },
   rocky: { d: siRockylinux.path },
   almalinux: { d: siAlmalinux.path },
+  // The chameleon, which is openSUSE's mark; SLES shares the logo family.
+  suse: { d: siOpensuse.path },
+  gentoo: { d: siGentoo.path },
+  mint: { d: siLinuxmint.path },
+  bsd: { d: siFreebsd.path },
   generic: {
     d: "M4.2 5.4h15.6a1.8 1.8 0 0 1 1.8 1.8v9.6a1.8 1.8 0 0 1-1.8 1.8H4.2a1.8 1.8 0 0 1-1.8-1.8V7.2a1.8 1.8 0 0 1 1.8-1.8z" +
       "M6.6 10.2 9.3 12.9 6.6 15.6M11.4 15.6h4.8",

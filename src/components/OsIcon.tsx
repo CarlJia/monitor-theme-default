@@ -8,7 +8,9 @@ import { cn } from "@/lib/utils"
  * and the native hover tooltip, which is where the version a card no longer
  * spells out ("Debian 12") stays reachable. Beside text that already names the
  * distribution the mark says nothing new, so it is passed no title and goes
- * decorative instead -- announced twice is worse than not at all.
+ * decorative instead -- announced twice is worse than not at all. A card that
+ * prints the name only where the tooltip cannot be reached keeps this title and
+ * hides that copy from the screen reader, so the name is still announced once.
  */
 export function OsIcon({ os, title, className }: { os: string; title?: string; className?: string }) {
   const mark = OS_MARKS[osMark(os)]
