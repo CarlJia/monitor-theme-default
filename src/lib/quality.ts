@@ -45,23 +45,36 @@ export type QualityState = {
 export type ProbeSeries = { id: number; name: string; points: PingPoint[]; loss: number }
 
 /**
- * Folds one node's quality slice into per-probe series. Both consumers (the
- * card/table band and the detail page's latency chart) take this directly;
- * the band maps each point through `pointQuality` to colour the cell.
+ * Folds one node's quality slice into per-probe series — the one place the
+ * payload's per-probe shape is interpreted. Both consumers (the card/table band
+ * and the detail page's latency chart) take this directly; the band maps each
+ * point through `pointQuality` to colour the cell.
  *
- * `loss` is lifted from `slice.loss` by id (the whole-window proportion), so
- * the detail page's badge has it without re-indexing; the band does not use it.
+ * Two contract decisions live here rather than at the call sites:
+ *
+ * - **Enumerate the union** of the named probes and the samples' own `task_id`s.
+ *   The hub names every probe it assigned, so in practice they coincide; taking
+ *   the union means a sample that arrives without a matching name still draws
+ *   (named `探测 N`, as the detail page always named one) instead of vanishing.
+ * - **Drop silent series.** A probe assigned but with no sample in this window
+ *   contributes nothing to that window — an empty strip carries no information
+ *   and would otherwise render as a bare name. This is what R4's blank means.
+ *
+ * `loss` is lifted from `slice.loss` by id (the whole-window proportion), so the
+ * detail page's badge has it without re-indexing; the band does not use it.
  */
 export function groupByProbe(slice: QualitySlice): ProbeSeries[] {
-  return Object.keys(slice.probes).map((id) => {
-    const taskId = Number(id)
-    return {
+  const ids = new Set<number>()
+  for (const id of Object.keys(slice.probes ?? {})) ids.add(Number(id))
+  for (const p of slice.ping) ids.add(p.task_id)
+  return [...ids]
+    .map((taskId) => ({
       id: taskId,
-      name: slice.probes[id],
+      name: slice.probes?.[String(taskId)] ?? `探测 ${taskId}`,
       points: slice.ping.filter((p) => p.task_id === taskId),
-      loss: slice.loss?.[taskId] ?? 0,
-    }
-  })
+      loss: slice.loss?.[String(taskId)] ?? 0,
+    }))
+    .filter((s) => s.points.length > 0)
 }
 
 /**
@@ -129,23 +142,29 @@ export function pointQuality(p: PingPoint): Quality {
 export function tooltipText(p: PingPoint): string {
   const time = clock(p.ts * 1000)
   const ms = isTimeout(p.latency) ? "超时" : `${Math.round(p.latency as number)} ms`
-  const loss =
-    !isTimeout(p.latency) && p.loss != null && p.loss > 0
-      ? ` · 丢 ${p.loss < 1 ? "<1" : Math.round(p.loss)}%`
-      : ""
+  // Loss is only worth naming when it happened, and never for a timeout (whose
+  // 100% is what the 超时 already says).
+  const loss = !isTimeout(p.latency) && p.loss != null && p.loss > 0 ? ` · ${lossText(p.loss)}` : ""
   return `${time} · ${ms}${loss}`
+}
+
+/**
+ * The "丢 N%" figure, shared by the band's hover card and the detail page's
+ * per-probe badge. Sub-1% reads as `<1`: rounding it to 0 would render a real
+ * loss as the 0 that denotes none.
+ */
+export function lossText(pct: number): string {
+  return `丢 ${pct < 1 ? "<1" : Math.round(pct)}%`
 }
 
 /**
  * Folds a batch response into a node-id -> per-probe series map. The map shape
  * (vs an array) lets both views look up a single node by id without scanning.
  *
- * Same tri-state semantics as the bands for everyone else: undefined = off
- * (the toggle is closed; nothing renders and no request runs), null = first
- * fetch in flight (a skeleton, never confused with no data), Map = ready.
+ * The tri-state mirrors the views': undefined = off (the toggle is closed;
+ * nothing renders and no request runs), null = first fetch in flight (a
+ * skeleton, never confused with no data), Map = ready.
  */
-const EMPTY_BANDS: ProbeSeries[] = []
-
 export function batchToSeries(batch: QualityBatch | null | undefined): Map<number, ProbeSeries[]> | null | undefined {
   if (batch === undefined) return undefined
   if (batch === null) return null
@@ -154,6 +173,14 @@ export function batchToSeries(batch: QualityBatch | null | undefined): Map<numbe
   return m
 }
 
+/**
+ * Shared empty values, handed out rather than allocated per call so that a
+ * view re-rendering every push keeps the same reference and skips work. Nothing
+ * may mutate them.
+ */
+const NO_SERIES: ProbeSeries[] = []
+const NO_VIEW: Map<number, ProbeSeries[]> = new Map()
+
 /** Per-node lookup that goes through the same tri-state vocabulary the views read. */
 export function bandsFor(
   quality: Map<number, ProbeSeries[]> | null | undefined,
@@ -161,7 +188,7 @@ export function bandsFor(
 ): ProbeSeries[] | null | undefined {
   if (quality === undefined) return undefined
   if (quality === null) return null
-  return quality.get(id) ?? EMPTY_BANDS
+  return quality.get(id) ?? NO_SERIES
 }
 
 /**
@@ -200,8 +227,6 @@ export function qualityReducer(state: QualityState, event: QualityEvent): Qualit
 /** The value the views read, derived from the toggle and the hook's state. */
 export type QualityView = Map<number, ProbeSeries[]> | null | undefined
 
-const NO_BANDS: Map<number, ProbeSeries[]> = new Map()
-
 /**
  * Resolves the three-state value every view reads from the toggle and the
  * hook: `undefined` when the toggle is off (nothing renders, no request runs),
@@ -216,52 +241,71 @@ export function qualityViewState(on: boolean, state: QualityState): QualityView 
   if (!on) return undefined
   const ready = batchToSeries(state.data)
   if (ready) return ready
-  // No data yet and no error means a fetch is pending (or about to start), so
-  // the views show a skeleton. A first fetch that failed leaves nothing to draw,
-  // so it reads as the empty map rather than a skeleton that never resolves.
-  return state.error ? NO_BANDS : null
+  return state.error ? NO_VIEW : null
 }
 
 /**
- * Tracks a toggle and polls quality data while it is open. Fetch on open,
- * refresh on an interval, stop on close or unmount. The interval is the
- * single knob to tune polling cadence (the plan's R7 "about 60s" default
- * lives here).
+ * What `startQualityPolling` needs from its environment. The scheduler is
+ * injected so the loop can be driven by a fake in a test -- this repo has no
+ * jsdom, so a real `useEffect` + `setInterval` pair cannot be exercised.
+ */
+export type QualityPollDeps<H> = {
+  fetch: () => Promise<QualityBatch>
+  onEvent: (event: QualityEvent) => void
+  schedule: (tick: () => void, ms: number) => H
+  cancel: (handle: H) => void
+  intervalMs?: number
+}
+
+/**
+ * The polling loop `useQuality` runs: fetch once immediately, then every
+ * `intervalMs` until the returned stop function runs. Fetching on open and
+ * stopping on close is what R5 and R7 promise.
+ *
+ * A response that lands after `stop` is dropped, so closing the toggle (or
+ * unmounting) cannot write into state nobody is reading.
+ */
+export function startQualityPolling<H>(deps: QualityPollDeps<H>): () => void {
+  const { fetch, onEvent, schedule, cancel } = deps
+  let alive = true
+  const tick = () => {
+    fetch().then(
+      (data) => {
+        if (alive) onEvent({ kind: "ok", data })
+      },
+      (e: unknown) => {
+        if (alive) onEvent({ kind: "fail", message: e instanceof Error ? e.message : String(e) })
+      },
+    )
+  }
+  tick()
+  const handle = schedule(tick, deps.intervalMs ?? REFRESH_MS)
+  return () => {
+    alive = false
+    cancel(handle)
+  }
+}
+
+/**
+ * Tracks a toggle and polls quality data while it is open. The loop itself
+ * lives in `startQualityPolling`; this hook only wires it to React state.
  *
  * Off derives the idle state rather than writing it back through an effect, so
- * the last frame survives a fast re-enable and a closed toggle never lets an
- * in-flight response land.
+ * the last frame survives a fast re-enable, and the effect's cleanup stops the
+ * loop so a closed toggle never lets an in-flight response land.
  */
 export function useQuality(enabled: boolean): QualityState {
   const [state, setState] = useState<QualityState>(IDLE)
 
   useEffect(() => {
     if (!enabled) return
-    let alive = true
-    const tick = async () => {
-      try {
-        const next = await fetchQuality()
-        if (!alive) return
-        setState((s) => qualityReducer(s, { kind: "ok", data: next }))
-      } catch (e) {
-        // Keep the previous frame on a failed refresh, mirroring `useNodes`.
-        if (alive) {
-          setState((s) =>
-            qualityReducer(s, { kind: "fail", message: e instanceof Error ? e.message : String(e) }),
-          )
-        }
-      }
-    }
-    void tick()
-    const id = setInterval(tick, REFRESH_MS)
-    return () => {
-      alive = false
-      clearInterval(id)
-    }
+    return startQualityPolling({
+      fetch: fetchQuality,
+      onEvent: (event) => setState((s) => qualityReducer(s, event)),
+      schedule: (tick, ms) => setInterval(tick, ms),
+      cancel: (handle) => clearInterval(handle),
+    })
   }, [enabled])
 
-  // Off derives the idle state rather than writing it back through an effect:
-  // the last frame stays in `state` for a fast re-enable, but while the toggle
-  // is off the caller sees nothing and no request runs (R5).
   return enabled ? state : IDLE
 }

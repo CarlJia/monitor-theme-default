@@ -12,7 +12,7 @@ import { api, type Node } from "@/lib/api"
 import {
   axisBytes, axisTop, bytes, clockFor, quarters, cpuName, CYCLES, FOREVER, money, osName, rate, timeTicks,
 } from "@/lib/format"
-import { groupByProbe, type Loss, type PingPoint, type Probes } from "@/lib/quality"
+import { groupByProbe, lossText, type Loss, type PingPoint, type Probes } from "@/lib/quality"
 
 type Point = {
   ts: number
@@ -188,11 +188,9 @@ export function NodeDetail({ node }: { node: Node }) {
   // arrived with. Memoised, as are the two below: the node prop changes every few
   // seconds as live metrics arrive, and rebuilding the chart's data array on those
   // renders would reset the brush. `groupByProbe` is the shared fold the band
-  // UI also consumes (src/lib/quality.ts), so the payload shape has one owner.
-  const pingSeries = useMemo(
-    () => (data ? groupByProbe(data).filter((s) => s.points.length > 0) : []),
-    [data],
-  )
+  // UI also consumes (src/lib/quality.ts), and it already drops probes with no
+  // sample in the window, so there is nothing to filter here.
+  const pingSeries = useMemo(() => (data ? groupByProbe(data) : []), [data])
 
   // The hub answers in seconds; the time axis requires milliseconds.
   const metricRows = useMemo(
@@ -493,7 +491,7 @@ export function NodeDetail({ node }: { node: Node }) {
                         half its packets draws like a healthy one. */}
                     {s.loss > 0 && (
                       <span className="tabular-nums opacity-60">
-                        丢 {s.loss < 1 ? "<1" : Math.round(s.loss)}%
+                        {lossText(s.loss)}
                       </span>
                     )}
                   </button>

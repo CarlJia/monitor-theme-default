@@ -166,13 +166,9 @@ export function NodeCard({
 
           {/* Quality bands sit below the live figures: they answer a different
               question ("how has the line been") than the instantaneous rates
-              above. The wrapper is skipped entirely when there is nothing to
-              draw, so the card keeps its height whether or not probes exist. */}
-          {quality !== undefined && (quality === null || quality.length > 0) && (
-            <div className="mt-4 border-t pt-4">
-              <QualitySlot quality={quality} />
-            </div>
-          )}
+              above. QualitySlot renders nothing when there is nothing to draw,
+              so the card keeps its height whether or not probes exist. */}
+          <QualitySlot quality={quality} className="mt-4 border-t pt-4" />
         </>
       ) : (
         /* Never connected: nothing to plot, so the card stays short rather than

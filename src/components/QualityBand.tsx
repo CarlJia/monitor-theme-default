@@ -3,6 +3,7 @@ import { useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { ProbeSeries, Quality } from "@/lib/quality"
 import { pointQuality, tooltipText } from "@/lib/quality"
+import { cn } from "@/lib/utils"
 
 /**
  * The hue per tier. Lightness is stepped inside each variable (see `index.css`),
@@ -27,22 +28,28 @@ type Hover = { x: number; y: number; text: string }
  * as one continuous band, distinct enough to count a rough proportion at a
  * glance. Hovering any bucket floats the sample's time, latency and loss (R13).
  *
- * The component's three states -- `undefined` (toggle off), `null` (first
- * fetch in flight), and an array (data) -- cover R4's "no probe" blank and
- * the loading skeleton: `undefined` renders nothing, `null` renders a
- * skeleton, an empty array renders nothing, and a populated array renders
- * the band. The tri-state vocabulary is the same one `batchToSeries` carries,
- * so the views don't re-decode it.
+ * The component owns its own three states, so no caller re-decodes them:
+ * `undefined` (toggle off) and an empty array (nothing to draw) render nothing
+ * at all, wrapper included; `null` (first fetch in flight) renders the skeleton
+ * inside the wrapper; an array renders the band. `className` carries the
+ * caller's layout — the card's top border and margin — so a caller that wants
+ * no band gets no empty box either.
  */
-export function QualitySlot({ quality }: { quality?: ProbeSeries[] | null }) {
+export function QualitySlot({ quality, className }: { quality?: ProbeSeries[] | null; className?: string }) {
   const [hover, setHover] = useState<Hover | null>(null)
 
   if (quality === undefined) return null
-  if (quality === null) return <Skeleton className="h-3 w-full" />
+  if (quality === null) {
+    return (
+      <div className={className}>
+        <Skeleton className="h-3 w-full" />
+      </div>
+    )
+  }
   if (quality.length === 0) return null
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={cn("flex flex-col gap-1.5", className)}>
       {quality.map((probe) => (
         <div key={probe.id} className="flex min-w-0 items-center gap-2">
           {/* The name is the row's identity; it truncates rather than widening
