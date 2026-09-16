@@ -31,12 +31,11 @@ export type QualitySlice = { ping: PingPoint[]; probes: Probes; loss?: Loss }
 /** The whole batch response, keyed by node id. */
 export type QualityBatch = Record<string, QualitySlice>
 
-/** What `useQuality` returns to its caller. */
+/** What `useQuality` returns to its caller. The views derive "fetch pending"
+ *  from `data === null && error === null`, so no separate loading flag is needed. */
 export type QualityState = {
-  /** Latest batch, null when no fetch has resolved yet or the toggle is off. */
+  /** Latest batch, null until a fetch resolves. */
   data: QualityBatch | null
-  /** True while a fetch is in flight (initial load or refresh). */
-  loading: boolean
   /** Last fetch's error message; cleared on a successful fetch. */
   error: string | null
 }
@@ -176,13 +175,62 @@ export function fetchQuality(): Promise<QualityBatch> {
 
 const REFRESH_MS = 60_000
 
-const IDLE: QualityState = { data: null, loading: false, error: null }
+const IDLE: QualityState = { data: null, error: null }
+
+/** A fetch outcome, folded through `qualityReducer`. */
+export type QualityEvent = { kind: "ok"; data: QualityBatch } | { kind: "fail"; message: string }
+
+/**
+ * The state machine `useQuality` folds fetch outcomes through. Pure, so the
+ * lifecycle it encodes is testable without a DOM (which this repo has none of):
+ * success replaces the frame and clears any error, while a failure keeps the
+ * last frame and records the message -- the page must not blank when one poll
+ * misses.
+ */
+export function qualityReducer(state: QualityState, event: QualityEvent): QualityState {
+  switch (event.kind) {
+    case "ok":
+      // A success clears any previous error, so a recovered poll stops reporting one.
+      return { data: event.data, error: null }
+    case "fail":
+      return { data: state.data, error: event.message }
+  }
+}
+
+/** The value the views read, derived from the toggle and the hook's state. */
+export type QualityView = Map<number, ProbeSeries[]> | null | undefined
+
+const NO_BANDS: Map<number, ProbeSeries[]> = new Map()
+
+/**
+ * Resolves the three-state value every view reads from the toggle and the
+ * hook: `undefined` when the toggle is off (nothing renders, no request runs),
+ * `null` while the first fetch is in flight (a skeleton, never confused with no
+ * data), and the map once data lands. A first fetch that failed leaves nothing
+ * to draw, so it reads as the empty map rather than a skeleton that never
+ * resolves.
+ *
+ * Extracted from `App` so the resolution has one home and a test.
+ */
+export function qualityViewState(on: boolean, state: QualityState): QualityView {
+  if (!on) return undefined
+  const ready = batchToSeries(state.data)
+  if (ready) return ready
+  // No data yet and no error means a fetch is pending (or about to start), so
+  // the views show a skeleton. A first fetch that failed leaves nothing to draw,
+  // so it reads as the empty map rather than a skeleton that never resolves.
+  return state.error ? NO_BANDS : null
+}
 
 /**
  * Tracks a toggle and polls quality data while it is open. Fetch on open,
  * refresh on an interval, stop on close or unmount. The interval is the
  * single knob to tune polling cadence (the plan's R7 "about 60s" default
  * lives here).
+ *
+ * Off derives the idle state rather than writing it back through an effect, so
+ * the last frame survives a fast re-enable and a closed toggle never lets an
+ * in-flight response land.
  */
 export function useQuality(enabled: boolean): QualityState {
   const [state, setState] = useState<QualityState>(IDLE)
@@ -191,15 +239,17 @@ export function useQuality(enabled: boolean): QualityState {
     if (!enabled) return
     let alive = true
     const tick = async () => {
-      setState((s) => ({ ...s, loading: true }))
       try {
         const next = await fetchQuality()
         if (!alive) return
-        setState({ data: next, loading: false, error: null })
+        setState((s) => qualityReducer(s, { kind: "ok", data: next }))
       } catch (e) {
-        // Keep the previous frame on a failed refresh, mirroring `useNodes`;
-        // the page does not blank when one poll misses.
-        if (alive) setState((s) => ({ ...s, loading: false, error: e instanceof Error ? e.message : String(e) }))
+        // Keep the previous frame on a failed refresh, mirroring `useNodes`.
+        if (alive) {
+          setState((s) =>
+            qualityReducer(s, { kind: "fail", message: e instanceof Error ? e.message : String(e) }),
+          )
+        }
       }
     }
     void tick()

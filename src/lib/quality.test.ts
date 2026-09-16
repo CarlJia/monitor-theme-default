@@ -10,11 +10,14 @@ import {
   groupByProbe,
   isTimeout,
   pointQuality,
+  qualityReducer,
+  qualityViewState,
   THRESHOLDS,
   tooltipText,
   worse,
   type Quality,
   type QualitySlice,
+  type QualityState,
 } from "./quality.ts"
 
 // classifyBucket: latency/loss -> quality tier
@@ -162,5 +165,35 @@ for (const [latency, loss, expected] of [
 ] as [number | null, number | null, Quality][]) {
   assert.equal(classifyBucket(latency, loss), expected, `${latency}/${loss} -> ${expected}`)
 }
+
+// qualityReducer: the hook's lifecycle, without a DOM (R5/R7 testable here).
+const idle: QualityState = { data: null, error: null }
+const batch = { "7": slice, "8": slice }
+
+const loaded = qualityReducer(idle, { kind: "ok", data: batch })
+assert.equal(loaded.data, batch, "ok sets the frame")
+assert.equal(loaded.error, null, "ok leaves no error")
+
+// A failed refresh keeps the frame it already had, so the page does not blank
+// when one poll misses.
+const failed = qualityReducer(loaded, { kind: "fail", message: "boom" })
+assert.equal(failed.data, batch, "fail keeps the last frame")
+assert.equal(failed.error, "boom", "fail records the message")
+
+const recovered = qualityReducer(failed, { kind: "ok", data: batch })
+assert.equal(recovered.error, null, "a later success clears the error")
+
+// qualityViewState: the tri-state every view reads (R4/R5).
+assert.equal(qualityViewState(false, loaded), undefined, "toggle off -> undefined, even with data held")
+assert.equal(qualityViewState(true, idle), null, "on, no data yet -> null (skeleton)")
+// A failed first fetch reads as the empty map, not a skeleton that never resolves.
+const failedView = qualityViewState(true, { data: null, error: "hub 503" })
+assert.ok(failedView instanceof Map, "a failed first fetch reads as the empty map, not null")
+assert.equal(failedView!.size, 0, "and it holds nothing")
+const readyView = qualityViewState(true, loaded)
+assert.ok(readyView instanceof Map, "ready -> the map")
+assert.equal(readyView!.size, 2, "both nodes in the batch")
+// A failure after data landed keeps showing the stale frame.
+assert.equal(qualityViewState(true, failed)!.size, 2, "a failed refresh still shows the last frame")
 
 console.log("质量分级与批量切片解析正确")

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useState } from "react"
 import { Moon, Sun, Wrench } from "lucide-react"
 
 import { CountryFilter } from "@/components/CountryFilter"
@@ -7,7 +7,7 @@ import { Summary } from "@/components/Summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, useNodes, type Node } from "@/lib/api"
-import { bandsFor, batchToSeries, useQuality, type ProbeSeries } from "@/lib/quality"
+import { bandsFor, qualityViewState, useQuality } from "@/lib/quality"
 import { readQualityOn, saveQualityOn } from "@/lib/quality-toggle"
 import { readView, saveView, type View } from "@/lib/view"
 
@@ -55,9 +55,6 @@ const VIEWS: { key: View; label: string }[] = [
   { key: "table", label: "表格" },
   { key: "map", label: "地图" },
 ]
-
-/** Shared empty map: toggled on, but there is nothing to draw for any node. */
-const EMPTY_QUALITY = new Map<number, ProbeSeries[]>()
 
 /**
  * The three browsing shapes of the fleet. The switcher sits above the country
@@ -158,15 +155,11 @@ export default function App() {
   }, [])
   // The hook only fetches while the toggle is on, so off costs the hub nothing
   // (R5). `data` is held across refreshes, so a slow poll never blanks the bands.
-  const { data: qualityData, loading: qualityLoading, error: qualityError } = useQuality(qualityOn)
-  const qualityByNode = useMemo(() => batchToSeries(qualityData), [qualityData])
-  // One value, three meanings the band component reads directly:
-  // undefined = toggle off, null = first fetch in flight, Map = data ready.
-  // A first fetch that failed leaves nothing to draw, so it reads as "no bands"
-  // rather than a skeleton that never resolves.
-  const quality = !qualityOn
-    ? undefined
-    : qualityByNode ?? (qualityLoading && !qualityError ? null : EMPTY_QUALITY)
+  const qualityState = useQuality(qualityOn)
+  // One value, three meanings the band component reads directly; the derivation
+  // (and its "first fetch failed reads as empty" rule) lives in the lib so it
+  // has a test.
+  const quality = qualityViewState(qualityOn, qualityState)
 
   const loadMe = useCallback(() => {
     // `|| "..."` because an empty message reads as no error: api() falls back to
