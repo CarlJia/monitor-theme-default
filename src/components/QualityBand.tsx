@@ -55,34 +55,33 @@ export function QualitySlot({ quality, className }: { quality?: ProbeSeries[] | 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {quality.map((probe) => (
-        <div key={probe.id} className="flex min-w-0 items-center gap-2">
-          {/* The name is the row's identity; it truncates rather than widening
-              the band on a narrow card. */}
-          <span
-            className="w-20 shrink-0 truncate text-xs text-muted-foreground"
-            title={probe.name}
-          >
-            {probe.name}
-          </span>
-          {/* The window in figures. A bucket's colour is the worse of its
-              latency and its loss, so the two are not separable from the strip
-              alone -- these cells are what says which one it was. The loss cell
-              keeps its width when there is no loss, or the two rows' bands
-              would not line up. */}
-          <span className="tnum w-12 shrink-0 text-right text-xs text-muted-foreground">
-            {latencyText(medianLatency(probe.points))}
-          </span>
-          <span className="tnum w-14 shrink-0 text-xs text-muted-foreground">
-            {probe.loss > 0 ? lossText(probe.loss) : ""}
-          </span>
+        <div key={probe.id} className="min-w-0">
+          {/* Label line, then the strip across the full width beneath it -- the
+              same shape as the card's own meter rows. Side by side is what the
+              strip cannot afford: 60 buckets (the hub's one-hour window at a
+              minute a bucket) with the 2px seam R1 asks for need ~178px, and
+              three cells beside it leave the strip 87px, which spilled the
+              strip past the card's edge. The two figures are fixed-width so
+              they line up down the column. */}
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-xs text-muted-foreground" title={probe.name}>
+              {probe.name}
+            </span>
+            <span className="flex shrink-0 items-baseline text-xs text-muted-foreground">
+              <span className="tnum w-12 text-right">{latencyText(medianLatency(probe.points))}</span>
+              <span className="tnum w-14 text-right">{probe.loss > 0 ? lossText(probe.loss) : ""}</span>
+            </span>
+          </div>
           <div
-            className="flex h-3 min-w-0 flex-1 gap-[2px]"
+            className="mt-1.5 flex h-3 w-full gap-[2px]"
             onMouseLeave={() => setHover(null)}
           >
             {probe.points.map((p, i) => (
               <span
                 key={i}
-                className="min-w-[1px] flex-1"
+                // No minimum width: a window or a card the strip does not fit
+                // should make it denser, never wider than the box it lives in.
+                className="min-w-0 flex-1"
                 style={{ background: FILL[pointQuality(p)] }}
                 onMouseEnter={(e) => setHover({ x: e.clientX, y: e.clientY, text: tooltipText(p) })}
                 onMouseMove={(e) =>
