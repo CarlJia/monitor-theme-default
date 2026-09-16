@@ -151,11 +151,15 @@ export function tooltipText(p: PingPoint): string {
 }
 
 /**
- * The "丢 N%" figure, shared by the band's hover card and the detail page's
- * per-probe badge. Sub-1% reads as `<1`: rounding it to 0 would render a real
- * loss as the 0 that denotes none.
+ * The "丢 N%" figure, shared by the band's hover card, the band row's loss cell
+ * and the detail page's per-probe badge. Sub-1% reads as `<1`: rounding a real
+ * loss to 0 would render it as the 0 that denotes none. Zero itself is named
+ * here rather than left to the caller: the band row prints a loss figure for
+ * every probe, and a blank cell reads as missing data rather than as a clean
+ * probe, so "0%" is a reading this function has to be able to say.
  */
 export function lossText(pct: number): string {
+  if (pct <= 0) return "丢 0%"
   return `丢 ${pct < 1 ? "<1" : Math.round(pct)}%`
 }
 
@@ -195,7 +199,7 @@ function latencyTier(ms: number | null): Quality {
 }
 
 /** A lone loss reading's tier. 0% is good, which is what keeps a clean probe's
- *  (absent) cell out of the warning colour. */
+ *  cell green rather than warning-coloured. */
 function lossTier(pct: number): Quality {
   return tier(THRESHOLDS.loss.good, THRESHOLDS.loss.warn, pct)
 }
@@ -207,22 +211,20 @@ function lossTier(pct: number): Quality {
  * is worse-of-the-two, which would make a 20ms reading amber for someone else's
  * packet loss).
  *
- * Extracted from the JSX so the "a probe that lost nothing prints no loss cell"
- * branch is pinned by a test: `lossText(0)` reads 丢 <1%, a *has-loss* string,
- * so dropping the guard would label a clean probe as lossy -- and no rendering
- * test exists to catch it, since this repo has no DOM. Hence `loss` being null
- * rather than an empty string: the caller cannot print a figure that is not
- * there, and the cell reserves its width for the column instead.
+ * Extracted from the JSX so the composition is pinned by a test: the row has no
+ * rendering test, since this repo has no DOM. Both cells are always present --
+ * a probe that lost nothing prints 丢 0%, because an empty cell reads as data
+ * the hub never sent, and `lossText` is where that distinction is kept.
  *
  * `probe.loss` is the whole window's proportion while `medianLatency` summarises
  * the points; both therefore describe the same window, which is what lets the
  * row's two cells sit beside one strip.
  */
-export function rowFigures(probe: ProbeSeries): { latency: RowCell; loss: RowCell | null } {
+export function rowFigures(probe: ProbeSeries): { latency: RowCell; loss: RowCell } {
   const median = medianLatency(probe.points)
   return {
     latency: { text: latencyText(median), tier: latencyTier(median) },
-    loss: probe.loss > 0 ? { text: lossText(probe.loss), tier: lossTier(probe.loss) } : null,
+    loss: { text: lossText(probe.loss), tier: lossTier(probe.loss) },
   }
 }
 

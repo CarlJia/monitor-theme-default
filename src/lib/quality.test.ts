@@ -160,6 +160,7 @@ assert.match(tooltipText({ task_id: 1, ts: at, latency: -1, loss: 0 }), /· 超�
 // lossText: the same figure the detail page's badge shows.
 assert.equal(lossText(4.2), "丢 4%", "rounds to the nearest percent")
 assert.equal(lossText(0.4), "丢 <1%", "sub-1% is not rounded to the 0 that means none")
+assert.equal(lossText(0), "丢 0%", "nothing lost is named, never left to a blank cell")
 assert.equal(lossText(1), "丢 1%", "1% is a whole percent")
 assert.equal(lossText(100), "丢 100%", "a full timeout reads as 100%")
 
@@ -199,10 +200,15 @@ assert.deepEqual(
 )
 // `lossText(0)` reads 丢 <1% -- a *has-loss* string -- so a dropped or loosened
 // guard (`>= 0`, or calling lossText unconditionally) would label a clean probe
-// as lossy.
-assert.equal(rowFigures(series([bucket(80)], 0)).loss, null, "a probe that lost nothing prints no loss cell")
+// as lossy. Both cells are always populated instead: a blank loss cell reads as
+// data the hub never sent, so a clean probe says so out loud.
+assert.deepEqual(
+  rowFigures(series([bucket(80)], 0)).loss,
+  { text: "丢 0%", tier: "good" },
+  "a probe that lost nothing says 丢 0%, in the good tier -- not a blank cell",
+)
 assert.equal(
-  rowFigures(series([bucket(80)], 0.4)).loss?.text,
+  rowFigures(series([bucket(80)], 0.4)).loss.text,
   "丢 <1%",
   "any real loss still prints, sub-1% included",
 )
@@ -223,9 +229,9 @@ assert.equal(tiers([bucket(301)], 0).latency.tier, "bad", "301ms -> bad")
 assert.equal(tiers([bucket(0)], 0).latency.tier, "good", "0ms is a real, fast reading")
 assert.equal(tiers([bucket(null)], 0).latency.tier, "timeout", "no answer -> the timeout tier, not a colourless cell")
 assert.equal(tiers([bucket(200)], 0).latency.tier, "warn", "a slow-but-answering window is not a timeout")
-assert.equal(tiers([bucket(20)], 0.4).loss?.tier, "good", "sub-1% loss is still green beside a green latency")
-assert.equal(tiers([bucket(20)], 1).loss?.tier, "warn", "1% loss boundary -> warn")
-assert.equal(tiers([bucket(20)], 6).loss?.tier, "bad", "6% loss -> bad")
+assert.equal(tiers([bucket(20)], 0.4).loss.tier, "good", "sub-1% loss is still green beside a green latency")
+assert.equal(tiers([bucket(20)], 1).loss.tier, "warn", "1% loss boundary -> warn")
+assert.equal(tiers([bucket(20)], 6).loss.tier, "bad", "6% loss -> bad")
 // The pair that motivates per-figure tiers: latency green, loss red, in one row.
 assert.deepEqual(
   tiers([bucket(20)], 6),

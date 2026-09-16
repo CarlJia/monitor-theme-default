@@ -95,17 +95,16 @@ export function QualitySlot({ quality, className }: { quality?: ProbeSeries[] | 
               {/* Each figure wears its own tier's colour, not the row's worst-of:
                   the strip folds latency and loss into one colour per bucket, so
                   these two cells are what say which of the two a run of amber
-                  was. The loss cell keeps its width even when empty, or the
-                  latency figures would not line up down the column. */}
+                  was. Both always print -- a clean probe reads 丢 0%, never a
+                  blank that looks like the hub sent nothing -- and both keep a
+                  fixed width, or the latency figures would not line up down the
+                  column. */}
               <span className="flex shrink-0 items-baseline text-xs">
                 <span className="tnum w-12 text-right" style={{ color: INK[figures.latency.tier] }}>
                   {figures.latency.text}
                 </span>
-                <span
-                  className="tnum w-14 text-right"
-                  style={figures.loss ? { color: INK[figures.loss.tier] } : undefined}
-                >
-                  {figures.loss?.text ?? ""}
+                <span className="tnum w-14 text-right" style={{ color: INK[figures.loss.tier] }}>
+                  {figures.loss.text}
                 </span>
               </span>
             </div>
