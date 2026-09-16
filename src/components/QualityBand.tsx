@@ -17,6 +17,19 @@ const FILL: Record<Quality, string> = {
   timeout: "var(--q-timeout)",
 }
 
+/**
+ * The tier's colour for *text* — the row's two figures wear it. The strip's own
+ * values are tuned for blocks, and a block is a graphic with no WCAG text-
+ * contrast obligation; these are the same hues pressed until 12px type clears
+ * 4.5:1 on the card (see `index.css`, which also carries the ratios).
+ */
+const INK: Record<Quality, string> = {
+  good: "var(--q-good-ink)",
+  warn: "var(--q-warn-ink)",
+  bad: "var(--q-bad-ink)",
+  timeout: "var(--q-timeout-ink)",
+}
+
 type Hover = { x: number; y: number; text: string }
 
 /**
@@ -79,9 +92,21 @@ export function QualitySlot({ quality, className }: { quality?: ProbeSeries[] | 
               <span className="truncate text-xs text-muted-foreground" title={probe.name}>
                 {probe.name}
               </span>
-              <span className="flex shrink-0 items-baseline text-xs text-muted-foreground">
-                <span className="tnum w-12 text-right">{figures.latency}</span>
-                <span className="tnum w-14 text-right">{figures.loss}</span>
+              {/* Each figure wears its own tier's colour, not the row's worst-of:
+                  the strip folds latency and loss into one colour per bucket, so
+                  these two cells are what say which of the two a run of amber
+                  was. The loss cell keeps its width even when empty, or the
+                  latency figures would not line up down the column. */}
+              <span className="flex shrink-0 items-baseline text-xs">
+                <span className="tnum w-12 text-right" style={{ color: INK[figures.latency.tier] }}>
+                  {figures.latency.text}
+                </span>
+                <span
+                  className="tnum w-14 text-right"
+                  style={figures.loss ? { color: INK[figures.loss.tier] } : undefined}
+                >
+                  {figures.loss?.text ?? ""}
+                </span>
               </span>
             </div>
             <div

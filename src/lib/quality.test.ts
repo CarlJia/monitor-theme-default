@@ -194,15 +194,44 @@ assert.equal(latencyText(null), "超时", "a window that never answered")
 const series = (points: PingPoint[], loss: number): ProbeSeries => ({ id: 1, name: "home", points, loss })
 assert.deepEqual(
   rowFigures(home),
-  { latency: "200ms", loss: "丢 4%" },
+  { latency: { text: "200ms", tier: "warn" }, loss: { text: "丢 4%", tier: "warn" } },
   "the row's two cells, off the same fixture the fold is tested with",
 )
 // `lossText(0)` reads 丢 <1% -- a *has-loss* string -- so a dropped or loosened
 // guard (`>= 0`, or calling lossText unconditionally) would label a clean probe
 // as lossy.
-assert.equal(rowFigures(series([bucket(80)], 0)).loss, "", "a probe that lost nothing prints no loss cell")
-assert.equal(rowFigures(series([bucket(80)], 0.4)).loss, "丢 <1%", "any real loss still prints, sub-1% included")
-assert.equal(rowFigures(series([bucket(null), bucket(-1)], 0)).latency, "超时", "a window that never answered prints 超时, not a blank cell")
+assert.equal(rowFigures(series([bucket(80)], 0)).loss, null, "a probe that lost nothing prints no loss cell")
+assert.equal(
+  rowFigures(series([bucket(80)], 0.4)).loss?.text,
+  "丢 <1%",
+  "any real loss still prints, sub-1% included",
+)
+assert.equal(
+  rowFigures(series([bucket(null), bucket(-1)], 0)).latency.text,
+  "超时",
+  "a window that never answered prints 超时, not a blank cell",
+)
+
+// Each figure wears its own tier, so the two cells can be coloured like the
+// strip. A figure's colour must describe that figure: colouring both by the
+// row's worse-of would paint a 20ms reading amber for someone else's packet
+// loss, which is exactly what the numbers exist to disambiguate.
+const tiers = (points: PingPoint[], loss: number) => rowFigures(series(points, loss))
+assert.equal(tiers([bucket(20)], 0).latency.tier, "good", "20ms -> good")
+assert.equal(tiers([bucket(100)], 0).latency.tier, "warn", "100ms boundary -> warn, same knob as the strip")
+assert.equal(tiers([bucket(301)], 0).latency.tier, "bad", "301ms -> bad")
+assert.equal(tiers([bucket(0)], 0).latency.tier, "good", "0ms is a real, fast reading")
+assert.equal(tiers([bucket(null)], 0).latency.tier, "timeout", "no answer -> the timeout tier, not a colourless cell")
+assert.equal(tiers([bucket(200)], 0).latency.tier, "warn", "a slow-but-answering window is not a timeout")
+assert.equal(tiers([bucket(20)], 0.4).loss?.tier, "good", "sub-1% loss is still green beside a green latency")
+assert.equal(tiers([bucket(20)], 1).loss?.tier, "warn", "1% loss boundary -> warn")
+assert.equal(tiers([bucket(20)], 6).loss?.tier, "bad", "6% loss -> bad")
+// The pair that motivates per-figure tiers: latency green, loss red, in one row.
+assert.deepEqual(
+  tiers([bucket(20)], 6),
+  { latency: { text: "20ms", tier: "good" }, loss: { text: "丢 6%", tier: "bad" } },
+  "a fast, lossy probe reads as fast AND lossy, not as one blended colour",
+)
 
 // batchToSeries: the tri-state vocabulary a single value carries.
 assert.equal(batchToSeries(undefined), undefined, "undefined -> undefined (off)")

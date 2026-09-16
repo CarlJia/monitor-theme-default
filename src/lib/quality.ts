@@ -182,21 +182,47 @@ export function latencyText(ms: number | null): string {
   return ms === null ? "超时" : `${Math.round(ms)}ms`
 }
 
+/** One figure a band row prints, and the tier it wears. */
+export type RowCell = { text: string; tier: Quality }
+
+/** A lone latency reading's tier — the window median, so a window that never
+ *  answered lands in `timeout` exactly as its cell's 超时 does. The check is
+ *  spelled out rather than routed through `isTimeout`, which is not a type
+ *  guard and would leave `ms` nullable at the `tier` call. */
+function latencyTier(ms: number | null): Quality {
+  if (ms === null || ms < 0) return "timeout"
+  return tier(THRESHOLDS.latency.good, THRESHOLDS.latency.warn, ms)
+}
+
+/** A lone loss reading's tier. 0% is good, which is what keeps a clean probe's
+ *  (absent) cell out of the warning colour. */
+function lossTier(pct: number): Quality {
+  return tier(THRESHOLDS.loss.good, THRESHOLDS.loss.warn, pct)
+}
+
 /**
- * The two figures a band row prints, in the order the row shows them. Extracted
- * from the JSX so the "a probe that lost nothing prints no loss cell" branch is
- * pinned by a test: `lossText(0)` reads 丢 <1%, a *has-loss* string, so dropping
- * the guard would label a clean probe as lossy -- and no rendering test exists
- * to catch it, since this repo has no DOM.
+ * What one band row prints: the window's median round trip and the probe's loss,
+ * each with the tier it wears so the figures can be coloured like the strip
+ * beside them (a figure's colour describes that figure -- the strip's own rule
+ * is worse-of-the-two, which would make a 20ms reading amber for someone else's
+ * packet loss).
+ *
+ * Extracted from the JSX so the "a probe that lost nothing prints no loss cell"
+ * branch is pinned by a test: `lossText(0)` reads 丢 <1%, a *has-loss* string,
+ * so dropping the guard would label a clean probe as lossy -- and no rendering
+ * test exists to catch it, since this repo has no DOM. Hence `loss` being null
+ * rather than an empty string: the caller cannot print a figure that is not
+ * there, and the cell reserves its width for the column instead.
  *
  * `probe.loss` is the whole window's proportion while `medianLatency` summarises
  * the points; both therefore describe the same window, which is what lets the
  * row's two cells sit beside one strip.
  */
-export function rowFigures(probe: ProbeSeries): { latency: string; loss: string } {
+export function rowFigures(probe: ProbeSeries): { latency: RowCell; loss: RowCell | null } {
+  const median = medianLatency(probe.points)
   return {
-    latency: latencyText(medianLatency(probe.points)),
-    loss: probe.loss > 0 ? lossText(probe.loss) : "",
+    latency: { text: latencyText(median), tier: latencyTier(median) },
+    loss: probe.loss > 0 ? { text: lossText(probe.loss), tier: lossTier(probe.loss) } : null,
   }
 }
 
