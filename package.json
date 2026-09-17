@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "node src/lib/format.test.ts && node src/lib/api.test.ts && node src/lib/view.test.ts && node src/lib/traffic.test.ts && node src/lib/geo.test.ts && node src/lib/flags.test.ts && node src/lib/map-aggregate.test.ts && node src/lib/quality.test.ts && node src/lib/quality-toggle.test.ts && node src/lib/os.test.ts",
+    "test": "node src/lib/format.test.ts && node src/lib/api.test.ts && node src/lib/view.test.ts && node src/lib/traffic.test.ts && node src/lib/geo.test.ts && node src/lib/flags.test.ts && node src/lib/map-aggregate.test.ts && node src/lib/quality.test.ts && node src/lib/quality-toggle.test.ts && node src/lib/os.test.ts && vitest run",
     "preview": "vite preview",
     "package-theme": "node scripts/package-theme.mjs"
   },
@@ -40,9 +40,12 @@
     "@types/topojson-client": "^3.1.5",
     "@vitejs/plugin-react": "^6.1.0",
     "flag-icons": "^7.5.0",
+    "jsdom": "^30.1.0",
     "oxlint": "^1.79.0",
+    "svgo": "^3.3.5",
     "tar": "^7.4.3",
     "typescript": "~6.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "vitest": "^5.0.1"
   }
 }
