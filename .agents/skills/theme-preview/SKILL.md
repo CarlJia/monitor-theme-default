@@ -30,7 +30,7 @@ node .agents/skills/theme-preview/scripts/compose.mjs \
 ```
 
 结束后 `kill %1` 停掉 hub，`file preview.png` 核对尺寸，然后按交付流程把
-preview.png 交给 judge agent 做视觉验收（浅色半：摘要卡数值/卡片仪表/国旗 emoji 完整；
+preview.png 交给 judge agent 做视觉验收（浅色半：摘要卡数值/卡片仪表/国旗完整；
 深色半：地图气泡——在线实心绿、离线空心圈；分割线无伪影、无骨架屏、无乱码）。
 
 ## 为什么每步长这样（改代码前先读）

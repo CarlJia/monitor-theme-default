@@ -2,11 +2,12 @@ import { ArrowDown, ArrowUp } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
+import { CountryFlag } from "@/components/CountryFlag"
 import { Meter } from "@/components/Meter"
 import { OsIcon } from "@/components/OsIcon"
 import { QualitySlot } from "@/components/QualityBand"
 import type { Node } from "@/lib/api"
-import { bytes, countryToFlag, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
+import { bytes, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
 import type { ProbeSeries } from "@/lib/quality"
 import { monthUsage, trafficFoot } from "@/lib/traffic"
 import { cn } from "@/lib/utils"
@@ -43,7 +44,7 @@ export function Status({ node }: { node: Node }) {
   )
 }
 
-/** Where the machine is. Default render is the flag emoji so a row of badges
+/** Where the machine is. Default render is the country's flag so a row of badges
  *  reads at a glance; the native tooltip on hover shows the country letters for
  *  anyone who needs the code spelled out. */
 export function Country({ node }: { node: Node }) {
@@ -53,8 +54,11 @@ export function Country({ node }: { node: Node }) {
       variant="outline"
       className="shrink-0 font-normal text-muted-foreground"
       title={node.country}
+      // 徽标里只有一面 alt 为空的旗，没有可读的文字；国家码只挂在 title 上，
+      // 那是悬停提示，进不了无障碍树。所以名字由徽标自己给。
+      aria-label={node.country}
     >
-      {countryToFlag(node.country)}
+      <CountryFlag code={node.country} />
     </Badge>
   )
 }

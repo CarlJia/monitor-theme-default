@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# flag-icons 的国旗，由 scripts/sync-flags.mjs 从 node_modules 复制而来，
+# 和 dist/ 一样是构建产物，不手改
+/public/flags/
+
 # release artefacts — produced by scripts/package-theme.mjs and
 # .github/workflows/release.yml, never hand-edited
 theme.tar.gz

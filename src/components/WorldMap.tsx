@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from "react"
 import L from "leaflet"
 import { geoGraticule10 } from "d3-geo"
 
+import { CountryFlag, flagImage } from "@/components/CountryFlag"
 import { Status } from "@/components/NodeCard"
 import type { Node } from "@/lib/api"
-import { countryToFlag } from "@/lib/format"
 import { countriesByCode } from "@/lib/geo"
 import { aggregateByCountry, bubbleRadius } from "@/lib/map-aggregate"
 
@@ -78,13 +78,16 @@ export function WorldMap({
         className: BUBBLE_CLASS[stat.state],
         fillOpacity: stat.state === "none" ? 0 : 0.9,
       })
-      // 文本节点而非字符串：Leaflet 的 setContent 对字符串走 innerHTML，对节点走
+      // 节点而非字符串：Leaflet 的 setContent 对字符串走 innerHTML，对节点走
       // appendChild（dist/leaflet-src.js 的 DivOverlay._updateContent）。上面
       // `countriesByCode.get(code)` 那道查表已经把 code 限成两个大写字母，所以现在
       // 也没有可利用的输入；但「不注入」不该是这个查表的副产品——主题与 /admin/ 同源，
-      // 这里的一次注入等于拿到后台的登录会话，值得单独堵死。
+      // 这里的一次注入等于拿到后台的登录会话，值得单独堵死。国旗同样建成节点：
+      // 它是一张 <img>，没有让它走字符串的道理。
       const tip = document.createElement("span")
-      tip.textContent = `${countryToFlag(code)} ${code} · ${stat.online}/${stat.total} 在线`
+      const flag = flagImage(code)
+      if (flag) tip.append(flag, " ")
+      tip.append(`${code} · ${stat.online}/${stat.total} 在线`)
       marker.bindTooltip(tip)
       // 再点同一气泡是收起，点另一气泡是切换（同一时刻至多一个展开国）。
       marker.on("click", () => setExpanded((current) => (current === code ? null : code)))
@@ -100,7 +103,7 @@ export function WorldMap({
       {expanded && (
         <div>
           <h3 className="mb-2 text-sm font-medium">
-            <span aria-hidden>{countryToFlag(expanded)}</span> {expanded} · {expandedNodes.length} 台
+            <CountryFlag code={expanded} /> {expanded} · {expandedNodes.length} 台
           </h3>
           <ul className="divide-y rounded-lg border">
             {expandedNodes.map((n) => (

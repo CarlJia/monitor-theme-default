@@ -1,6 +1,6 @@
 import { badgeVariants } from "@/components/ui/badge"
+import { CountryFlag } from "@/components/CountryFlag"
 import type { Node } from "@/lib/api"
-import { countryToFlag } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 function Chip({
@@ -75,7 +75,7 @@ export function CountryFilter({
           onClick={() => onChange(selected === code ? null : code)}
           title={code}
         >
-          <span aria-hidden>{countryToFlag(code)}</span>
+          <CountryFlag code={code} />
           {code} {count}
         </Chip>
       ))}
