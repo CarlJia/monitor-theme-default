@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils"
 /**
  * The hue per tier. Lightness is stepped inside each variable (see `index.css`),
  * so the tier is legible by brightness alone -- the redundant cue KTD5 requires
- * for red-green colourblind readers -- while the hue stays the primary read.
+ * for red-green colourblind readers. 彩度压下来之后这层明度阶不再只是兜底：
+ * 色相仍是第一眼的分档依据，但四档之间的亮度落差已经够单独读出一遍。
  */
 const FILL: Record<Quality, string> = {
   good: "var(--q-good)",
