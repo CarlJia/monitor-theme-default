@@ -4,9 +4,7 @@
   "version": "1.1.2",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/sync-flags.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/sync-flags.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "node src/lib/format.test.ts && node src/lib/api.test.ts && node src/lib/view.test.ts && node src/lib/traffic.test.ts && node src/lib/geo.test.ts && node src/lib/flags.test.ts && node src/lib/map-aggregate.test.ts && node src/lib/quality.test.ts && node src/lib/quality-toggle.test.ts && node src/lib/os.test.ts",

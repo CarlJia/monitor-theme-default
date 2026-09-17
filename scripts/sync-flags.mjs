@@ -1,6 +1,6 @@
-// 把 flag-icons 的 4x3 国旗复制进 public/，构建与开发前自动执行（package.json 的
-// predev/prebuild），由 vite 原样带进 dist/。主题不发起任何外部请求（README 的主题
-// 契约），国旗因此随包内置，与地图底图同一个理由。
+// 把 flag-icons 的 4x3 国旗复制进 public/，由 vite.config.ts 的 sync-flags 插件在
+// dev/build 启动时调用，vite 再原样带进 dist/。主题不发起任何外部请求（README 的
+// 主题契约），国旗因此随包内置，与地图底图同一个理由。
 //
 // 只用 4x3：正方形那套在本主题里没有任何位置，多带一份等于把 theme.tar.gz 里的
 // 640 KB 变成 1.3 MB——而 hub 是把这个包嵌进二进制里的。

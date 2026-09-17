@@ -1,9 +1,25 @@
+import { spawnSync } from "node:child_process"
+
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 
+// 国旗是随包内置的静态资源，但 public/flags 是从依赖里复制来的、不进版本库。
+// 同步挂成插件而不是 npm 的 predev/prebuild：vite 的每个入口（dev、build）都会
+// 走到这里，绕开 npm 的 `npx vite build` 也一样有旗子——挂钩子时它会静默产出一个
+// 没有旗的 dist，而 lint/test/build 全是绿的。
+const syncFlags = {
+  name: "sync-flags",
+  buildStart() {
+    // 失败就抛：宁可构建挂掉，也不要一个缺旗的包被发出去。脚本路径锚在配置文件上，
+    // 从别的目录起 vite 也找得到它。
+    const r = spawnSync(process.execPath, [import.meta.dirname + "/scripts/sync-flags.mjs"], { stdio: "inherit" })
+    if (r.status !== 0) throw new Error("国旗同步失败，见上方输出")
+  },
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), syncFlags],
   // import.meta.dirname rather than new URL(...).pathname: the latter is
   // URL-encoded, so a checkout under a path containing a space or a non-ASCII
   // name resolves to %20 and the alias silently points nowhere.

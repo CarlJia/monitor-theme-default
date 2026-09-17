@@ -17,3 +17,14 @@ export function flagPath(code: string): string | null {
   if (!TWO_LETTERS.test(code)) return null
   return `flags/${code.toLowerCase()}.svg`
 }
+
+/**
+ * 国旗的完整地址：路径前面接上调用方的 base。
+ *
+ * base 是参数而不是在这里读 `import.meta.env`：`import.meta.env` 在 node 下是
+ * undefined，读它的函数没法被测——而这层「码 → 地址」正是唯一能测的那层。
+ */
+export function flagSrc(code: string, base: string): string | null {
+  const path = flagPath(code)
+  return path ? base + path : null
+}
