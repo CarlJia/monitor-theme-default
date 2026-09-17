@@ -1,4 +1,6 @@
-import { OS_MARKS, osMark } from "@/lib/os"
+import type { CSSProperties } from "react"
+
+import { OS_MARKS, osColors, osMark } from "@/lib/os"
 import { cn } from "@/lib/utils"
 
 /**
@@ -11,15 +13,26 @@ import { cn } from "@/lib/utils"
  * decorative instead -- announced twice is worse than not at all. A card that
  * prints the name only where the tooltip cannot be reached keeps this title and
  * hides that copy from the screen reader, so the name is still announced once.
+ *
+ * The mark wears the vendor's own colour. Both grounds' values ride on the
+ * element as custom properties and CSS picks between them, so the theme toggle
+ * re-colours it without this component ever reading the theme -- the same trick
+ * the map's colours use. The pair itself is `osColors`'s job, not this
+ * component's: the dark-ground fallback for brands that ship no lifted variant
+ * is what keeps half the set visible on the dark card, and it is pinned by the
+ * test beside `os.ts`.
  */
 export function OsIcon({ os, title, className }: { os: string; title?: string; className?: string }) {
-  const mark = OS_MARKS[osMark(os)]
+  const key = osMark(os)
+  const mark = OS_MARKS[key]
+  const { light, dark } = osColors(key)
   return (
     <svg
       viewBox="0 0 24 24"
       role={title ? "img" : undefined}
       aria-hidden={title ? undefined : true}
       aria-label={title}
+      style={{ "--os": light, "--os-dark": dark } as CSSProperties}
       className={cn("size-3.5 shrink-0", className)}
     >
       {title && <title>{title}</title>}
@@ -27,13 +40,13 @@ export function OsIcon({ os, title, className }: { os: string; title?: string; c
         <path
           d={mark.d}
           fill="none"
-          stroke="currentColor"
           strokeWidth={mark.stroke}
           strokeLinecap="round"
           strokeLinejoin="round"
+          className="stroke-[var(--os)] dark:stroke-[var(--os-dark)]"
         />
       ) : (
-        <path d={mark.d} fill="currentColor" />
+        <path d={mark.d} className="fill-[var(--os)] dark:fill-[var(--os-dark)]" />
       )}
     </svg>
   )

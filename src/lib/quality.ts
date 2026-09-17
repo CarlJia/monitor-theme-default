@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { median } from "d3-array"
 
 import { api } from "./api.ts"
 import { clock } from "./format.ts"
@@ -60,8 +61,10 @@ export type ProbeSeries = { id: number; name: string; points: PingPoint[]; loss:
  *   contributes nothing to that window — an empty strip carries no information
  *   and would otherwise render as a bare name. This is what R4's blank means.
  *
- * `loss` is lifted from `slice.loss` by id (the whole-window proportion), so the
- * detail page's badge has it without re-indexing; the band does not use it.
+ * `loss` is lifted from `slice.loss` by id (the whole-window proportion) so both
+ * readers get it without re-indexing their own copy: the detail page's badge and
+ * the band row's loss cell. That whole-window scope is therefore shared -- moving
+ * it (say, to the chart's visible range) would change both figures at once.
  */
 export function groupByProbe(slice: QualitySlice): ProbeSeries[] {
   const ids = new Set<number>()
@@ -149,12 +152,72 @@ export function tooltipText(p: PingPoint): string {
 }
 
 /**
- * The "丢 N%" figure, shared by the band's hover card and the detail page's
- * per-probe badge. Sub-1% reads as `<1`: rounding it to 0 would render a real
- * loss as the 0 that denotes none.
+ * The "丢 N%" figure, shared by the band's hover card, the band row's loss cell
+ * and the detail page's per-probe badge. Sub-1% reads as `<1`: rounding a real
+ * loss to 0 would render it as the 0 that denotes none. Zero itself is named
+ * here rather than left to the caller: the band row prints a loss figure for
+ * every probe, and a blank cell reads as missing data rather than as a clean
+ * probe, so "0%" is a reading this function has to be able to say.
  */
 export function lossText(pct: number): string {
+  if (pct <= 0) return "丢 0%"
   return `丢 ${pct < 1 ? "<1" : Math.round(pct)}%`
+}
+
+/**
+ * A probe's typical round trip over the window: the median of its buckets.
+ * Buckets where every probe timed out are dropped rather than counted as slow,
+ * so the figure describes the strip instead of the gaps in it. A window that
+ * never answered has no median -- the row prints that as 超时.
+ *
+ * The band's cells carry latency and loss folded into one colour, so the raw
+ * result of that fold needs a number beside it: a yellow bucket does not say
+ * whether the window was slow or lossy.
+ */
+export function medianLatency(points: PingPoint[]): number | null {
+  const answered = points.map((p) => p.latency).filter((v): v is number => !isTimeout(v))
+  return median(answered) ?? null
+}
+
+/** The band row's latency cell. Compact, since it sits inside a card. */
+export function latencyText(ms: number | null): string {
+  return ms === null ? "超时" : `${Math.round(ms)}ms`
+}
+
+/** One figure a band row prints, and the tier it wears. */
+export type RowCell = { text: string; tier: Quality }
+
+/** A lone loss reading's tier. 0% is good, which is what keeps a clean probe's
+ *  cell green rather than warning-coloured. */
+function lossTier(pct: number): Quality {
+  return tier(THRESHOLDS.loss.good, THRESHOLDS.loss.warn, pct)
+}
+
+/**
+ * What one band row prints: the window's median round trip and the probe's loss,
+ * each with the tier it wears so the figures can be coloured like the strip
+ * beside them (a figure's colour describes that figure -- the strip's own rule
+ * is worse-of-the-two, which would make a 20ms reading amber for someone else's
+ * packet loss).
+ *
+ * Extracted from the JSX so the composition is pinned by a test: the row has no
+ * rendering test, since this repo has no DOM. Both cells are always present --
+ * a probe that lost nothing prints 丢 0%, because an empty cell reads as data
+ * the hub never sent, and `lossText` is where that distinction is kept.
+ *
+ * `probe.loss` is the whole window's proportion while `medianLatency` summarises
+ * the points; both therefore describe the same window, which is what lets the
+ * row's two cells sit beside one strip.
+ */
+export function rowFigures(probe: ProbeSeries): { latency: RowCell; loss: RowCell } {
+  const median = medianLatency(probe.points)
+  return {
+    // The window median wears the same latency rule a bucket does, with the loss
+    // axis held neutral -- so a window that never answered lands in `timeout`
+    // exactly as its cell's 超时 does.
+    latency: { text: latencyText(median), tier: classifyBucket(median, null) },
+    loss: { text: lossText(probe.loss), tier: lossTier(probe.loss) },
+  }
 }
 
 /**
@@ -302,7 +365,11 @@ export function useQuality(enabled: boolean): QualityState {
     return startQualityPolling({
       fetch: fetchQuality,
       onEvent: (event) => setState((s) => qualityReducer(s, event)),
-      schedule: (tick, ms) => setInterval(tick, ms),
+      // 后台标签页跳过这一轮：这个接口在 hub 侧是一条跨节点扫描，与 agent 上报
+      // 争同一条写连接，一个被忘在后台的标签页不该每 60 秒占它一次。开关打开时
+      // 的首帧不走这里，所以「打开即拉一轮」的行为不受影响；回到前台后下一轮
+      // （≤60 秒）把数据补齐。
+      schedule: (tick, ms) => setInterval(() => { if (!document.hidden) tick() }, ms),
       cancel: (handle) => clearInterval(handle),
     })
   }, [enabled])

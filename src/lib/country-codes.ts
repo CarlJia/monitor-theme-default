@@ -1,6 +1,6 @@
 // ISO 3166-1 数字码（字符串，与 world-atlas 的 feature id 一致）→ alpha-2。
 // hub 的节点只带 alpha-2，world-atlas 只带数字码，这张表是两侧的桥。
-// 人工录入，src/lib/geo.test.ts 抽样校验并要求覆盖 50m 数据全集。
+// 人工录入，src/lib/geo.test.ts 抽样校验并要求覆盖 110m 数据全集。
 export const COUNTRY_CODES: Record<string, string> = {
   "004": "AF", "008": "AL", "010": "AQ", "012": "DZ", "016": "AS", "020": "AD",
   "024": "AO", "028": "AG", "031": "AZ", "032": "AR", "036": "AU", "040": "AT",

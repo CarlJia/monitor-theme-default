@@ -9,14 +9,19 @@ import {
   fetchQuality,
   groupByProbe,
   isTimeout,
+  latencyText,
   lossText,
+  medianLatency,
   pointQuality,
   qualityReducer,
   qualityViewState,
+  rowFigures,
   startQualityPolling,
   THRESHOLDS,
   tooltipText,
   worse,
+  type PingPoint,
+  type ProbeSeries,
   type Quality,
   type QualityEvent,
   type QualitySlice,
@@ -155,8 +160,84 @@ assert.match(tooltipText({ task_id: 1, ts: at, latency: -1, loss: 0 }), /· 超�
 // lossText: the same figure the detail page's badge shows.
 assert.equal(lossText(4.2), "丢 4%", "rounds to the nearest percent")
 assert.equal(lossText(0.4), "丢 <1%", "sub-1% is not rounded to the 0 that means none")
+assert.equal(lossText(0), "丢 0%", "nothing lost is named, never left to a blank cell")
 assert.equal(lossText(1), "丢 1%", "1% is a whole percent")
 assert.equal(lossText(100), "丢 100%", "a full timeout reads as 100%")
+
+// medianLatency: the figure the band row prints. Buckets nobody answered are
+// dropped rather than counted as slow, so the number describes the strip and
+// not the holes in it.
+const bucket = (latency: number | null) => ({ task_id: 1, ts: 0, latency })
+assert.equal(medianLatency([bucket(30), bucket(10), bucket(20)]), 20, "odd count -> the middle reading")
+assert.equal(medianLatency([bucket(40), bucket(10), bucket(30), bucket(20)]), 25, "even count -> mean of the two middles")
+assert.equal(medianLatency([bucket(null), bucket(10), bucket(30)]), 20, "a timed-out bucket is not a 0ms reading")
+assert.equal(medianLatency([bucket(-1), bucket(10), bucket(30)]), 20, "the hub's -1 marker is dropped too")
+assert.equal(medianLatency([bucket(0), bucket(10)]), 5, "0ms is a real reading (isTimeout agrees)")
+assert.equal(medianLatency([bucket(12.4), bucket(12.6)]), 12.5, "the median is not pre-rounded")
+assert.equal(medianLatency([bucket(null), bucket(-1)]), null, "nothing answered -> no median")
+assert.equal(medianLatency([]), null, "an empty window has no median")
+// Loss is the other cell's business; it must not leak into the latency figure.
+assert.equal(medianLatency([{ task_id: 1, ts: 0, latency: 10, loss: 90 }, bucket(30)]), 20, "loss does not move the median")
+// Real readings cross 100ms, where a string-comparing sort would leave
+// [100, 2, 30] in place and call 2ms the middle. d3's `median` selects
+// numerically, so these two pin that the figure stays a number.
+assert.equal(medianLatency([bucket(100), bucket(2), bucket(30)]), 30, "three-digit readings sort numerically, not as text")
+assert.equal(medianLatency([bucket(100), bucket(2), bucket(30), bucket(9)]), 19.5, "even count across magnitudes averages the two numeric middles")
+
+// latencyText: 超时 is the same word the hover card uses for the same window.
+assert.equal(latencyText(52), "52ms", "whole ms")
+assert.equal(latencyText(52.6), "53ms", "rounds like the hover card")
+assert.equal(latencyText(null), "超时", "a window that never answered")
+
+// rowFigures: the band row's two cells. They live here rather than in the JSX
+// because this repo has no DOM, so the render path is untestable and the
+// "prints nothing when nothing was lost" branch would otherwise be unpinned.
+const series = (points: PingPoint[], loss: number): ProbeSeries => ({ id: 1, name: "home", points, loss })
+assert.deepEqual(
+  rowFigures(home),
+  { latency: { text: "200ms", tier: "warn" }, loss: { text: "丢 4%", tier: "warn" } },
+  "the row's two cells, off the same fixture the fold is tested with",
+)
+// `lossText(0)` reads 丢 <1% -- a *has-loss* string -- so a dropped or loosened
+// guard (`>= 0`, or calling lossText unconditionally) would label a clean probe
+// as lossy. Both cells are always populated instead: a blank loss cell reads as
+// data the hub never sent, so a clean probe says so out loud.
+assert.deepEqual(
+  rowFigures(series([bucket(80)], 0)).loss,
+  { text: "丢 0%", tier: "good" },
+  "a probe that lost nothing says 丢 0%, in the good tier -- not a blank cell",
+)
+assert.equal(
+  rowFigures(series([bucket(80)], 0.4)).loss.text,
+  "丢 <1%",
+  "any real loss still prints, sub-1% included",
+)
+assert.equal(
+  rowFigures(series([bucket(null), bucket(-1)], 0)).latency.text,
+  "超时",
+  "a window that never answered prints 超时, not a blank cell",
+)
+
+// Each figure wears its own tier, so the two cells can be coloured like the
+// strip. A figure's colour must describe that figure: colouring both by the
+// row's worse-of would paint a 20ms reading amber for someone else's packet
+// loss, which is exactly what the numbers exist to disambiguate.
+const tiers = (points: PingPoint[], loss: number) => rowFigures(series(points, loss))
+assert.equal(tiers([bucket(20)], 0).latency.tier, "good", "20ms -> good")
+assert.equal(tiers([bucket(100)], 0).latency.tier, "warn", "100ms boundary -> warn, same knob as the strip")
+assert.equal(tiers([bucket(301)], 0).latency.tier, "bad", "301ms -> bad")
+assert.equal(tiers([bucket(0)], 0).latency.tier, "good", "0ms is a real, fast reading")
+assert.equal(tiers([bucket(null)], 0).latency.tier, "timeout", "no answer -> the timeout tier, not a colourless cell")
+assert.equal(tiers([bucket(200)], 0).latency.tier, "warn", "a slow-but-answering window is not a timeout")
+assert.equal(tiers([bucket(20)], 0.4).loss.tier, "good", "sub-1% loss is still green beside a green latency")
+assert.equal(tiers([bucket(20)], 1).loss.tier, "warn", "1% loss boundary -> warn")
+assert.equal(tiers([bucket(20)], 6).loss.tier, "bad", "6% loss -> bad")
+// The pair that motivates per-figure tiers: latency green, loss red, in one row.
+assert.deepEqual(
+  tiers([bucket(20)], 6),
+  { latency: { text: "20ms", tier: "good" }, loss: { text: "丢 6%", tier: "bad" } },
+  "a fast, lossy probe reads as fast AND lossy, not as one blended colour",
+)
 
 // batchToSeries: the tri-state vocabulary a single value carries.
 assert.equal(batchToSeries(undefined), undefined, "undefined -> undefined (off)")

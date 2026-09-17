@@ -31,6 +31,12 @@
   --destructive: oklch(0.3 0 0);
   --border: oklch(0.9 0 0);
   --input: oklch(0.9 0 0);
+  /* 开关 off 态的轨道。原来用 --input 那档 oklch(0.9)：对白卡片只有 1.35:1，低于
+     WCAG 1.4.11 对 UI 组件边界要求的 3:1；深色主题那边是 15% 白叠在近黑卡片上，
+     合成后只有 1.57:1，同样过不了线。压到 0.62 后两个底色一起满足——对白卡片
+     3.64:1、对深卡片 5.02:1，滑块（浅色下白、深色下近白）站上去也都是 3.4:1 以上，
+     轨道边界与滑块位置这两件事才都读得出来。同一个值两个主题都够，故 .dark 不重定义。 */
+  --switch-off: oklch(0.62 0 0);
   --ring: oklch(0.62 0 0);
   --chart-1: oklch(0.3 0 0);
   --chart-2: oklch(0.45 0 0);
@@ -50,6 +56,14 @@
   --q-warn: oklch(0.70 0.16 85);
   --q-bad: oklch(0.56 0.21 27);
   --q-timeout: oklch(0.42 0 0);
+  /* 色带行上那两个读数（「133ms」「丢 3%」）用的文字档色。上面四档是给色块定的：
+     色块是图形，不受 WCAG 文字对比约束，直接拿来染 12px 的字，浅色主题下只剩
+     1.9–2.7:1。所以文字档取同一色相、压暗到过 4.5:1（对白卡片依次 5.65 / 6.59 /
+     6.62 / 7.44）。深色主题另见下方 .dark。 */
+  --q-good-ink: oklch(0.50 0.13 150);
+  --q-warn-ink: oklch(0.48 0.10 85);
+  --q-bad-ink: oklch(0.50 0.19 27);
+  --q-timeout-ink: oklch(0.45 0 0);
 }
 
 .dark {
@@ -86,6 +100,12 @@
   --q-warn: oklch(0.74 0.16 90);
   --q-bad: oklch(0.62 0.20 27);
   --q-timeout: oklch(0.50 0 0);
+  /* 文字档：深底上良、警两档直接沿用色块色（对 --card 依次 11.7 / 7.8:1，都够），
+     bad 提亮一档留出余量（4.52 -> 5.12），超时那档色块色只有 3.0:1、必须提亮到过线。 */
+  --q-good-ink: var(--q-good);
+  --q-warn-ink: var(--q-warn);
+  --q-bad-ink: oklch(0.65 0.19 27);
+  --q-timeout-ink: oklch(0.62 0 0);
 }
 
 @theme inline {
@@ -132,7 +152,7 @@
 /* Tabular figures keep live numbers from shifting as they update. */
 .tnum { font-variant-numeric: tabular-nums; }
 
-/* Leaflet 地图（底图为内置 50m 轮廓 + 经纬网，无瓦片）：配色全部走主题
+/* Leaflet 地图（底图为内置 110m 轮廓 + 经纬网，无瓦片）：配色全部走主题
    变量，CSS 规则覆盖 Leaflet 写在 SVG 上的呈现属性，明暗切换即时生效。
    选择器双写自身类名：leaflet.css 随懒加载块后注入，同特异性会被它压过。 */
 .leaflet-container.leaflet-container { background: var(--background); font: inherit; }

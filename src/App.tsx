@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { Moon, Sun, Wrench } from "lucide-react"
 
 import { CountryFilter } from "@/components/CountryFilter"
@@ -6,6 +6,7 @@ import { NodeCard } from "@/components/NodeCard"
 import { Summary } from "@/components/Summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
 import { api, useNodes, type Node } from "@/lib/api"
 import { bandsFor, qualityViewState, useQuality } from "@/lib/quality"
 import { readQualityOn, saveQualityOn } from "@/lib/quality-toggle"
@@ -60,8 +61,17 @@ const VIEWS: { key: View; label: string }[] = [
  * The three browsing shapes of the fleet. The switcher sits above the country
  * chips -- both act on the list, so they belong to the same group. aria-pressed
  * follows the CountryFilter chip pattern so the current view is announced.
+ *
+ * `onWarm` is the caller's chance to start a view's lazy chunk downloading
+ * before the click lands. Pointer-enter and focus are the two moments that
+ * precede a press, so the download overlaps the pointer's travel and the
+ * press itself.
  */
-function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => void }) {
+function ViewSwitch({ view, onChange, onWarm }: {
+  view: View
+  onChange: (v: View) => void
+  onWarm?: (v: View) => void
+}) {
   return (
     <div className="flex gap-1">
       {VIEWS.map((v) => (
@@ -70,6 +80,8 @@ function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => voi
           type="button"
           aria-pressed={view === v.key}
           onClick={() => onChange(v.key)}
+          onPointerEnter={() => onWarm?.(v.key)}
+          onFocus={() => onWarm?.(v.key)}
           className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
             view === v.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
           }`}
@@ -82,23 +94,18 @@ function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => voi
 }
 
 /**
- * The quality band's on/off switch. Hidden by default and off on a first visit
- * (R6): turning it on is what starts the batch fetch, so an anonymous visitor
- * who never asks for it never costs the hub a query (R5). It sits with the view
- * switcher because both act on the list.
+ * The quality band's on/off switch. Off on a first visit (R6): turning it on is
+ * what starts the batch fetch, so an anonymous visitor who never asks for it
+ * never costs the hub a query (R5). It sits with the view switcher because both
+ * act on the list. The label wraps the control so the text is part of the hit
+ * area and names the switch for screen readers.
  */
 function QualitySwitch({ on, onChange }: { on: boolean; onChange: (next: boolean) => void }) {
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={() => onChange(!on)}
-      className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-        on ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-      }`}
-    >
+    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
       网络质量
-    </button>
+      <Switch checked={on} onCheckedChange={onChange} />
+    </label>
   )
 }
 
@@ -178,11 +185,15 @@ export default function App() {
     // the split trades its first paint for a full-page skeleton over the first
     // node opened: 2.6s click-to-chart on 4G against 1.4s unsplit, 1.7s warm.
     void loadDetail()
-    // The map chunk is the heaviest new view (Leaflet + country outlines);
-    // warming it after paint keeps the first switch off the critical path
-    // without adding to the landing page's weight (R11).
-    void loadMap()
   }, [loadMe])
+
+  // 地图块反过来，不走挂载即预热：它是最重的一块（Leaflet + 国家轮廓，换到 110m
+  // 后 gzip 仍是详情页的两倍多），却要一次明确的「地图」点按才可能被看到——挂载
+  // 即下等于给每个只看列表的访客白推一份。改成意图触发后，悬停或聚焦该按钮就开始
+  // 下载，与指针移动到按下之间的那段时间重叠；从没碰过地图的人一个字节都不下。
+  const warmView = useCallback((v: View) => {
+    if (v === "map") void loadMap()
+  }, [])
 
   // The status page was closed while this tab was open. `me` holds whatever it
   // reported at load, so it is re-queried; the effect below then directs an
@@ -196,11 +207,19 @@ export default function App() {
     if (me && !me.public_page && !me.authed) location.href = "/admin/"
   }, [me])
 
-  const sorted = [...(nodes ?? [])].sort((a, b) => a.sort - b.sort || a.id - b.id)
+  // 派生值记忆化：这棵树每 2 秒因推送重渲染一次，而这三个值只与 nodes / country /
+  // open 有关——切主题、切质量开关、悬停都不该把整个列表重排一遍。
+  const sorted = useMemo(
+    () => [...(nodes ?? [])].sort((a, b) => a.sort - b.sort || a.id - b.id),
+    [nodes],
+  )
   // null = unfiltered; a country code narrows the grid but not the summary,
   // which keeps reporting on the whole fleet.
-  const visible = country ? sorted.filter((n) => n.country === country) : sorted
-  const selected = sorted.find((n) => n.id === open)
+  const visible = useMemo(
+    () => (country ? sorted.filter((n) => n.country === country) : sorted),
+    [sorted, country],
+  )
+  const selected = useMemo(() => sorted.find((n) => n.id === open), [sorted, open])
 
   // `/node/{id}` is a page people bookmark and share, so the tab needs the node's
   // name. The site name rather than a fixed string, since the hub lets an operator
@@ -267,9 +286,9 @@ export default function App() {
               <CountryFilter nodes={sorted} selected={country} onChange={setCountry} />
               {/* ml-auto 而非 justify-between：chip 行换行或过滤器缺席（无国家
                   数据时渲染 null）时，切换控件仍钉在右侧。 */}
-              <div className="ml-auto flex items-center gap-1">
+              <div className="ml-auto flex items-center gap-2">
                 <QualitySwitch on={qualityOn} onChange={switchQuality} />
-                <ViewSwitch view={view} onChange={switchView} />
+                <ViewSwitch view={view} onChange={switchView} onWarm={warmView} />
               </div>
             </div>
             {sorted.length === 0 ? (

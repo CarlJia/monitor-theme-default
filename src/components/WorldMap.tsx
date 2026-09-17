@@ -18,7 +18,7 @@ const BUBBLE_CLASS = {
 } as const
 
 // 底图特征一次展开：切回地图视图（含严格模式双挂载）不再重算两百多条。
-// 50m 高分辨率轮廓 + 经纬网，全部内置，零外部请求（R11 同源约束）。
+// 110m 轮廓 + 经纬网，全部内置，零外部请求（R11 同源约束）。
 const LAND_FEATURES = [...countriesByCode.values()].flatMap((e) => (e.feature ? [e.feature] : []))
 const GRATICULE = geoGraticule10()
 
@@ -36,7 +36,7 @@ export function WorldMap({
   const bubbles = useRef<L.LayerGroup | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
 
-  // 地图只建一次：底图为内置 50m 轮廓与经纬网，无任何瓦片请求（R11）。
+  // 地图只建一次：底图为内置 110m 轮廓与经纬网，无任何瓦片请求（R11）。
   // relative z-0 把 Leaflet 内部 200–1000 的 z-index 关进容器自己的层叠上
   // 下文，滚动时不会浮到吸顶头部上；清理函数保证严格模式双挂载安全。
   useEffect(() => {
@@ -78,7 +78,14 @@ export function WorldMap({
         className: BUBBLE_CLASS[stat.state],
         fillOpacity: stat.state === "none" ? 0 : 0.9,
       })
-      marker.bindTooltip(`${countryToFlag(code)} ${code} · ${stat.online}/${stat.total} 在线`)
+      // 文本节点而非字符串：Leaflet 的 setContent 对字符串走 innerHTML，对节点走
+      // appendChild（dist/leaflet-src.js 的 DivOverlay._updateContent）。上面
+      // `countriesByCode.get(code)` 那道查表已经把 code 限成两个大写字母，所以现在
+      // 也没有可利用的输入；但「不注入」不该是这个查表的副产品——主题与 /admin/ 同源，
+      // 这里的一次注入等于拿到后台的登录会话，值得单独堵死。
+      const tip = document.createElement("span")
+      tip.textContent = `${countryToFlag(code)} ${code} · ${stat.online}/${stat.total} 在线`
+      marker.bindTooltip(tip)
       // 再点同一气泡是收起，点另一气泡是切换（同一时刻至多一个展开国）。
       marker.on("click", () => setExpanded((current) => (current === code ? null : code)))
       marker.addTo(group)
