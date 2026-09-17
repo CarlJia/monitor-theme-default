@@ -3,7 +3,7 @@
 // requires no runner, framework or dependency.
 //
 // Nothing imports it, so the bundle never includes it.
-import { axisBytes, axisTop, bytes, countryToFlag, cpuName, daysUntil, osName, pair, quarters, timeTicks, uptime } from "./format.ts"
+import { axisBytes, axisTop, bytes, cpuName, daysUntil, osName, pair, quarters, timeTicks, uptime } from "./format.ts"
 
 let failed = 0
 function eq(got: unknown, want: unknown, what: string) {
@@ -101,16 +101,6 @@ eq(uptime(2 * 86400 + 5 * 3600), "2 天 5 小时", "超过一天不再写分钟"
 
 eq(osName("Debian GNU/Linux 12 (bookworm)"), "Debian 12", "发行版名去掉代号")
 eq(cpuName("Intel(R) Xeon(R) CPU E5-2680 8-Core Processor"), "Intel Xeon E5-2680", "CPU 名去掉商标和核数")
-
-// countryToFlag: each letter of the code is a regional indicator in
-// U+1F1E6..U+1F1FF. Verify via the same code points the function emits, since
-// the file is run through Node and the terminal may not render the emoji.
-const FLAG = (a: string, b: string) => String.fromCodePoint(0x1f1e6 + a.charCodeAt(0) - 65, 0x1f1e6 + b.charCodeAt(0) - 65)
-eq(countryToFlag(""), "", "空代码不输出字符")
-eq(countryToFlag("US"), FLAG("U", "S"), "US -> 美国旗")
-eq(countryToFlag("cn"), FLAG("C", "N"), "小写也归一到大写")
-eq(countryToFlag("JP"), FLAG("J", "P"), "JP -> 日本旗")
-eq(countryToFlag("TW"), FLAG("T", "W"), "TW 走默认区域指示符路径")
 
 if (failed) {
   console.error(`\n${failed} 项不通过`)

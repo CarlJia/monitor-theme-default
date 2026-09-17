@@ -14,8 +14,8 @@ for (const patch of [{ load: null }, { load: [1, "bad", 3] }, { cpu: "bad" }, { 
   assert.equal(result[1], node)
 }
 
-// country 的边界校验：只有两个大写字母放行。这个值会进 Leaflet 的 tooltip 与旗帜
-// emoji 的构造，所以校验放在数据入界处，而不是指望下游每一处都自己防。
+// country 的边界校验：只有两个大写字母放行。这个值会进 Leaflet 的 tooltip 与国旗
+// 路径的构造（lib/flags.ts），所以校验放在数据入界处，而不是指望下游每一处都自己防。
 const withCountry = (country: unknown) => ({ ...node, country }) as unknown as Node
 const us = withCountry("US")
 assert.equal(safeNodes([us])[0], us, "合法 alpha-2 原样返回、不复制")

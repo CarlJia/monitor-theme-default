@@ -2,11 +2,12 @@ import { ArrowDown, ArrowUp } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
+import { CountryFlag } from "@/components/CountryFlag"
 import { Meter } from "@/components/Meter"
 import { OsIcon } from "@/components/OsIcon"
 import { QualitySlot } from "@/components/QualityBand"
 import type { Node } from "@/lib/api"
-import { bytes, countryToFlag, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
+import { bytes, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
 import type { ProbeSeries } from "@/lib/quality"
 import { monthUsage, trafficFoot } from "@/lib/traffic"
 import { cn } from "@/lib/utils"
@@ -43,19 +44,23 @@ export function Status({ node }: { node: Node }) {
   )
 }
 
-/** Where the machine is. Default render is the flag emoji so a row of badges
+/** Where the machine is. Default render is the country's flag so a row of cards
  *  reads at a glance; the native tooltip on hover shows the country letters for
  *  anyone who needs the code spelled out. */
 export function Country({ node }: { node: Node }) {
   if (!node.country) return null
   return (
-    <Badge
-      variant="outline"
-      className="shrink-0 font-normal text-muted-foreground"
+    // 旗子不带外框：这里除了旗没有别的内容，描一圈等于把旗子的边再画一遍。
+    // 悬停提示与可访问名字留在 span 上——role="img" 不可省，光有 aria-label 的裸
+    // span 没有角色，读屏不一定把它念出来。
+    <span
+      role="img"
+      aria-label={node.country}
       title={node.country}
+      className="inline-flex shrink-0 items-center"
     >
-      {countryToFlag(node.country)}
-    </Badge>
+      <CountryFlag code={node.country} />
+    </span>
   )
 }
 

@@ -99,7 +99,7 @@ function sample(nodes: Node[]) {
   if (speedHistory.length > KEEP) speedHistory.shift()
 }
 
-/** alpha-2 的形状。hub 的 `country` 要进 Leaflet 的 tooltip 与旗帜 emoji 的构造。 */
+/** alpha-2 的形状。hub 的 `country` 要进 Leaflet 的 tooltip 与国旗路径的构造（lib/flags.ts）。 */
 const ALPHA2 = /^[A-Z]{2}$/
 
 /** A malformed report must not remove every other node from the page. */
@@ -110,9 +110,10 @@ export function safeNodes(nodes: Node[]): Node[] {
   return nodes.map((node) => {
     const m = node.metrics
     const live = !m || (fields.every((key) => number(m[key])) && Array.isArray(m.load) && m.load.length === 3 && m.load.every(number))
-    // alpha-2 以外的 country 一律清空。这个值会喂给 Leaflet 的 tooltip 与旗帜
-    // emoji 的构造，清成空串后卡片按「未定位」渲染，比印一个由 charCode 算出的
-    // 乱码强；tooltip 那条路径的内容也因此由这里保证，而不是靠查表顺带限住。
+    // alpha-2 以外的 country 一律清空。这个值会喂给 Leaflet 的 tooltip 与国旗
+    // 路径的构造（lib/flags.ts），两处都只认这个形状：清成空串后卡片按「未定位」
+    // 渲染，比留着一个指向不存在国旗的码强；tooltip 那条路径的内容也因此由这里
+    // 保证，而不是靠查表顺带限住。
     const placed = typeof node.country !== "string" || ALPHA2.test(node.country)
     // 没有要改的就原样返回：引用相等是下游每 2 秒一帧的成本前提。
     if (live && placed) return node
