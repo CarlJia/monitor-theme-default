@@ -21,8 +21,10 @@ npm run dev
 
 构建产物位于 `dist/`。提交前运行 `npm run build && npm run lint && npm test`。
 
-`npm test` 校验数字格式化和实时指标的输入边界。没有测试框架，Node 自己剥掉
-类型，失败时退出码非零。
+`npm test` 校验数字格式化和实时指标的输入边界，以及组件的渲染结果。前者是
+`src/lib/*.test.ts`——不带框架、`node` 自己剥掉类型的脚本；后者是
+`src/components/*.test.tsx`——vitest + jsdom（组件是 .tsx，Node 读不了 JSX）。
+两段串在同一个 `npm test` 里，失败时退出码非零。
 
 ## 主题包
 

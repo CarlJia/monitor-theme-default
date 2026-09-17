@@ -33,7 +33,6 @@ assert.equal(flagSrc("USA", "/"), null, "三位也没有地址")
 // 路径锚在文件上而不是 cwd 上：从仓库根以外的目录跑同一个文件也得成立。
 const codes = [...new Set(Object.values(COUNTRY_CODES))]
 const SYNC = fileURLToPath(new URL("../../scripts/sync-flags.mjs", import.meta.url))
-const SOURCE = fileURLToPath(new URL("../../node_modules/flag-icons/flags/4x3/", import.meta.url))
 
 // 只写临时目录：public/flags 被 .gitignore 排除，干净 clone 里并不存在，断言它
 // 会在别人的机器上假失败。
@@ -44,13 +43,18 @@ try {
   const missing = codes.filter((c) => !existsSync(join(tmp, `${c.toLowerCase()}.svg`)))
   assert.deepEqual(missing, [], `码表里的每个国家都要有国旗文件，缺：${missing.join("、")}`)
 
-  // 逐字节对回 4x3 原件。两套旗子的文件名完全一样（都是 <code>.svg），所以只有
-  // 内容能钉住脚本读的是哪个源目录：src 若被换成 1x1，文件仍在、名字仍对，这里红。
-  const drifted = codes.filter((c) => {
-    const name = `${c.toLowerCase()}.svg`
-    return !readFileSync(join(tmp, name)).equals(readFileSync(join(SOURCE, name)))
-  })
-  assert.deepEqual(drifted, [], `交付的旗子必须与 flag-icons 的 4x3 原件一致，不符：${drifted.join("、")}`)
+  // 交付的是 4x3 那一套：两套旗子的文件名完全一样（都是 <code>.svg），源目录换成
+  // 1x1 时文件仍在、名字仍对，所以只能看内容——4x3 的 viewBox 是 640×480。这里不再
+  // 逐字节比原件：交付前 svgo 会把坐标取整（见 scripts/sync-flags.mjs）。
+  const wrongRatio = codes.filter(
+    (c) => !readFileSync(join(tmp, `${c.toLowerCase()}.svg`), "utf8").includes('viewBox="0 0 640 480"'),
+  )
+  assert.deepEqual(wrongRatio, [], `交付的旗子必须是 4x3（viewBox 640×480），不符：${wrongRatio.join("、")}`)
+
+  // 取整那一步真的跑过。实测 246 国：取整前 1598 KB，取整后 777 KB，阈值留在两者
+  // 之间——将来把 optimize 删掉、或者把 precision 调回去，都会在这里红。
+  const total = codes.reduce((n, c) => n + readFileSync(join(tmp, `${c.toLowerCase()}.svg`)).length, 0)
+  assert.ok(total < 1_200_000, `交付的旗子应当是取过整的（当前 ${Math.round(total / 1024)} KB）`)
 } finally {
   // 断言炸了也要把临时目录收掉
   rmSync(tmp, { recursive: true, force: true })
