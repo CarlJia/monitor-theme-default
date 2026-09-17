@@ -178,9 +178,9 @@ assert.equal(medianLatency([bucket(null), bucket(-1)]), null, "nothing answered 
 assert.equal(medianLatency([]), null, "an empty window has no median")
 // Loss is the other cell's business; it must not leak into the latency figure.
 assert.equal(medianLatency([{ task_id: 1, ts: 0, latency: 10, loss: 90 }, bucket(30)]), 20, "loss does not move the median")
-// Real readings cross 100ms, where JS's default `sort()` compares strings:
-// [100, 2, 30] would stay put and the "middle" would be 2ms. Both cases below
-// only hold with the numeric comparator, so deleting it turns them red.
+// Real readings cross 100ms, where a string-comparing sort would leave
+// [100, 2, 30] in place and call 2ms the middle. d3's `median` selects
+// numerically, so these two pin that the figure stays a number.
 assert.equal(medianLatency([bucket(100), bucket(2), bucket(30)]), 30, "three-digit readings sort numerically, not as text")
 assert.equal(medianLatency([bucket(100), bucket(2), bucket(30), bucket(9)]), 19.5, "even count across magnitudes averages the two numeric middles")
 

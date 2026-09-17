@@ -262,8 +262,7 @@ export default function App() {
             <div className="flex flex-wrap items-center gap-2">
               <CountryFilter nodes={sorted} selected={country} onChange={setCountry} />
               {/* ml-auto 而非 justify-between：chip 行换行或过滤器缺席（无国家
-                  数据时渲染 null）时，切换控件仍钉在右侧。gap-2 让带文字标签的
-                  质量开关与视图分段按钮之间不至于挤在一起。 */}
+                  数据时渲染 null）时，切换控件仍钉在右侧。 */}
               <div className="ml-auto flex items-center gap-2">
                 <QualitySwitch on={qualityOn} onChange={switchQuality} />
                 <ViewSwitch view={view} onChange={switchView} />

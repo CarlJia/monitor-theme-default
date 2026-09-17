@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { median } from "d3-array"
 
 import { api } from "./api.ts"
 import { clock } from "./format.ts"
@@ -175,10 +176,7 @@ export function lossText(pct: number): string {
  */
 export function medianLatency(points: PingPoint[]): number | null {
   const answered = points.map((p) => p.latency).filter((v): v is number => !isTimeout(v))
-  if (answered.length === 0) return null
-  answered.sort((a, b) => a - b)
-  const mid = answered.length >> 1
-  return answered.length % 2 === 1 ? answered[mid] : (answered[mid - 1] + answered[mid]) / 2
+  return median(answered) ?? null
 }
 
 /** The band row's latency cell. Compact, since it sits inside a card. */
@@ -188,15 +186,6 @@ export function latencyText(ms: number | null): string {
 
 /** One figure a band row prints, and the tier it wears. */
 export type RowCell = { text: string; tier: Quality }
-
-/** A lone latency reading's tier — the window median, so a window that never
- *  answered lands in `timeout` exactly as its cell's 超时 does. The check is
- *  spelled out rather than routed through `isTimeout`, which is not a type
- *  guard and would leave `ms` nullable at the `tier` call. */
-function latencyTier(ms: number | null): Quality {
-  if (ms === null || ms < 0) return "timeout"
-  return tier(THRESHOLDS.latency.good, THRESHOLDS.latency.warn, ms)
-}
 
 /** A lone loss reading's tier. 0% is good, which is what keeps a clean probe's
  *  cell green rather than warning-coloured. */
@@ -223,7 +212,10 @@ function lossTier(pct: number): Quality {
 export function rowFigures(probe: ProbeSeries): { latency: RowCell; loss: RowCell } {
   const median = medianLatency(probe.points)
   return {
-    latency: { text: latencyText(median), tier: latencyTier(median) },
+    // The window median wears the same latency rule a bucket does, with the loss
+    // axis held neutral -- so a window that never answered lands in `timeout`
+    // exactly as its cell's 超时 does.
+    latency: { text: latencyText(median), tier: classifyBucket(median, null) },
     loss: { text: lossText(probe.loss), tier: lossTier(probe.loss) },
   }
 }
