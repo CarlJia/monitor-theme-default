@@ -2,6 +2,7 @@
 // The one judgement the OS logo makes, and the table it draws from.
 // Run with `npm test`: Node strips the types itself.
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
 
 import { OS_MARKS, osColors, osMark, type OsMark } from "./os.ts"
 
@@ -84,7 +85,50 @@ for (const [family, sample] of Object.entries(SAMPLE)) {
 // 彩色标的可读性。品牌原色在浅色底上够用（logo 本就不受 WCAG 文本对比约束，
 // 所以这里只挡「白底上看不见」这一种），真正会踩的是深色主题：CentOS 的 #262577
 // 与 Apple / AlmaLinux 的 #000000 在黑卡片上等于没画图标。深底这条线是硬要求。
-const CARD = { light: "#ffffff", dark: "#161616" } // --card: oklch(1 0 0) / oklch(0.2 0 0)
+//
+// 底色从 index.css 现场读，不抄常数：抄一份的话量的是抄下来的那个值，`--card`
+// 一改守卫就跟界面脱钩、却仍然全绿——而它正是为了挡住「图标在卡片上消失」。
+const CSS = readFileSync(new URL("../index.css", import.meta.url), "utf8")
+
+/** oklch -> sRGB 十六进制（D65，不做色域映射）。只用来量对比度，够用。 */
+function oklchHex(L: number, C: number, H: number): string {
+  const rad = (H * Math.PI) / 180
+  const a = C * Math.cos(rad)
+  const b = C * Math.sin(rad)
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3
+  const channels = [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+  ]
+  return (
+    "#" +
+    channels
+      .map((v) => {
+        const c = Math.max(0, Math.min(1, v))
+        const encoded = c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055
+        return Math.round(encoded * 255).toString(16).padStart(2, "0")
+      })
+      .join("")
+  )
+}
+
+/** 从 index.css 的 `:root` / `.dark` 规则里读出一枚 oklch token 并换算成 sRGB。
+ *  规则本身用正则定位：文件顶部还有一条 `@custom-variant dark (&:is(.dark *))`，
+ *  按子串找 `.dark` 会先命中它。 */
+function cardGround(selector: RegExp): string {
+  const at = CSS.search(selector)
+  if (at < 0) throw new Error(`index.css 里找不到 ${selector}`)
+  const block = CSS.slice(at, CSS.indexOf("}", at))
+  const found = block.match(/--card:\s*oklch\(([^)]*)\)/)
+  if (!found) throw new Error(`index.css 的 ${selector} 块里找不到 --card`)
+  const [L, C = "0", H = "0"] = found[1].trim().split(/\s+/)
+  return oklchHex(Number(L), Number(C), Number(H))
+}
+const CARD = { light: cardGround(/^\s*:root\s*\{/m), dark: cardGround(/^\s*\.dark\s*\{/m) }
+
 const channel = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
 const luminance = (hex: string) => {
   const [r, g, b] = [1, 3, 5].map((i) => channel(parseInt(hex.slice(i, i + 2), 16) / 255))
