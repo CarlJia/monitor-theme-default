@@ -2,7 +2,7 @@ import { geoCentroid } from "d3-geo"
 import { feature } from "topojson-client"
 import type { Feature, FeatureCollection, Geometry } from "geojson"
 import type { Topology } from "topojson-specification"
-import countries from "world-atlas/countries-50m.json" with { type: "json" }
+import countries from "world-atlas/countries-110m.json" with { type: "json" }
 
 // .ts 扩展名：本文件被 node 直跑的 geo.test.ts 导入，Node 的 ESM 解析要求
 // 显式扩展名；tsc（allowImportingTsExtensions）与 Vite 都接受同一写法。
@@ -15,8 +15,8 @@ export type CountryEntry = {
   centroid: [number, number]
 }
 
-// 50m 数据不画的个别边缘属地（如 GF、GI）用手工坐标落点——气泡只需要
-// 坐标，不需要轮廓；底图仍然只画有轮廓的国家。
+// 110m 不画的个别边缘属地（如 GF、SG）用手工坐标落点——气泡只需要坐标，
+// 不需要轮廓；底图仍然只画有轮廓的国家。
 const FALLBACK_CENTROIDS: Record<string, [number, number]> = {
   AD: [42.55, 1.6], AI: [18.22, -63.06], AS: [-14.27, -170.13], AX: [60.22, 19.94],
   BB: [13.18, -59.55], BH: [26.03, 50.56], BM: [32.3, -64.76], BL: [17.9, -62.85],
@@ -34,14 +34,25 @@ const FALLBACK_CENTROIDS: Record<string, [number, number]> = {
   SM: [43.94, 12.46], ST: [0.24, 6.6], TC: [21.69, -71.8], TF: [-49.25, 69.17],
   TO: [-21.18, -175.2], TV: [-7.48, 178.68], VA: [41.9, 12.45], VG: [18.42, -64.64],
   VI: [18.34, -64.9], WF: [-13.3, -176.2], WS: [-13.72, -172.1], YT: [-12.78, 45.17],
+  // 110m 档比 50m 少画 61 国。上面那张表已覆盖其中 52 国，余下这 9 个在 50m 里
+  // 有轮廓、在 110m 里没有，坐标是从 50m 数据算出的几何中心。少了它们，换档会
+  // 让这 9 个国家在图上连气泡一起消失，而不是仅仅变粗。
+  AG: [17.28, -61.79], AW: [12.52, -69.98], CW: [12.2, -68.97], GD: [12.12, -61.68],
+  GS: [-54.46, -36.49], KM: [-11.88, 43.68], MF: [18.09, -63.06], SX: [18.05, -63.06],
+  VC: [13.23, -61.2],
 }
 
 /**
- * alpha-2 → 国家轮廓与中心。模块加载时构建一次：50m 数据 739 KB（gzip
- * ~227 KB，只进地图懒加载块），转换与求心各跑一遍就够，之后全是查表。
+ * alpha-2 → 国家轮廓与中心。模块加载时构建一次：110m 数据 105 KB（gzip
+ * ~38 KB，只进地图懒加载块），转换与求心各跑一遍就够，之后全是查表。
  * world-atlas 用数字码作 feature id，经 `country-codes.ts` 换成 alpha-2；
- * 缺轮廓的边缘属地落回手工坐标；两者都没有的 alpha-2 不出现——地图少一
+ * 缺轮廓的边缘属地落回坐标表；两者都没有的 alpha-2 不出现——地图少一
  * 个条目比报错好。
+ *
+ * 选 110m 而不是 50m 是按体积定的：源数据 105 KB 对 739 KB，展开后的顶点
+ * 约 1 万对 8 万，换档省下既有的下载量，也省下地图面板每次重建 SVG 路径
+ * 的开销。代价是 maxZoom 8 下海岸线明显变粗，而面板要读的是气泡而不是海
+ * 岸线。条目总数两档一致（246），上面坐标表末尾那 9 条就是为这个一致补的。
  */
 const entries = new Map<string, CountryEntry>()
 {

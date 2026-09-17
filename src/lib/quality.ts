@@ -365,7 +365,11 @@ export function useQuality(enabled: boolean): QualityState {
     return startQualityPolling({
       fetch: fetchQuality,
       onEvent: (event) => setState((s) => qualityReducer(s, event)),
-      schedule: (tick, ms) => setInterval(tick, ms),
+      // 后台标签页跳过这一轮：这个接口在 hub 侧是一条跨节点扫描，与 agent 上报
+      // 争同一条写连接，一个被忘在后台的标签页不该每 60 秒占它一次。开关打开时
+      // 的首帧不走这里，所以「打开即拉一轮」的行为不受影响；回到前台后下一轮
+      // （≤60 秒）把数据补齐。
+      schedule: (tick, ms) => setInterval(() => { if (!document.hidden) tick() }, ms),
       cancel: (handle) => clearInterval(handle),
     })
   }, [enabled])

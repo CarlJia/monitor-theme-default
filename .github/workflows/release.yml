@@ -18,6 +18,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # ci.yml 只在 push/PR 到 main 时跑这两道，tag 是另一条路径——别让它成为绕过
+      # 编译与测试的入口：发布出去的正是这里构建的那个产物。
+      - run: npm run lint
+      - run: npm test
       - run: npm run build
 
       # The archive is an installable theme directory rather than a source

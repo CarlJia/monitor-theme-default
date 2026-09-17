@@ -20,7 +20,14 @@ export function Meter({ label, pct, foot, empty = "—" }: Props) {
         </span>
       </div>
       <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-foreground transition-[width] duration-500" style={{ width: `${filled}%` }} />
+        {/* clip-path 而不是 width：宽度是布局属性，而这棵树每 2 秒收到一次推送，
+            每张卡 4 根条、每根一个 500ms 过渡——等于让这几百个元素持续重排。inset
+            只影响绘制，外观仅差填充条右端那一处圆角（6px 高的条上，直角与圆角肉眼
+            分不出来），换来的是滚动与推送帧上不再有这份布局开销。 */}
+        <div
+          className="h-full rounded-full bg-foreground transition-[clip-path] duration-500"
+          style={{ clipPath: `inset(0 ${100 - filled}% 0 0)` }}
+        />
       </div>
       <div className="tnum mt-1.5 truncate text-xs text-muted-foreground">{foot}</div>
     </div>

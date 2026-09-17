@@ -152,7 +152,7 @@
 /* Tabular figures keep live numbers from shifting as they update. */
 .tnum { font-variant-numeric: tabular-nums; }
 
-/* Leaflet 地图（底图为内置 50m 轮廓 + 经纬网，无瓦片）：配色全部走主题
+/* Leaflet 地图（底图为内置 110m 轮廓 + 经纬网，无瓦片）：配色全部走主题
    变量，CSS 规则覆盖 Leaflet 写在 SVG 上的呈现属性，明暗切换即时生效。
    选择器双写自身类名：leaflet.css 随懒加载块后注入，同特异性会被它压过。 */
 .leaflet-container.leaflet-container { background: var(--background); font: inherit; }

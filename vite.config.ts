@@ -8,8 +8,8 @@ export default defineConfig({
   // URL-encoded, so a checkout under a path containing a space or a non-ASCII
   // name resolves to %20 and the alias silently points nowhere.
   resolve: { alias: { "@": import.meta.dirname + "/src" } },
-  // 地图懒加载块内置 50m 国家轮廓（~740 KB 源数据），压缩后 ~290 KB；
-  // 只在首次切到地图视图时下载，不进首屏。
+  // 地图懒加载块内置 110m 国家轮廓（~105 KB 源数据）；只在首次切到地图视图
+  // 时下载，且改成意图触发后不再进首屏。阈值仍留着，blocked 的是其他块。
   build: { chunkSizeWarningLimit: 1000 },
   server: { proxy: { "/api": { target: "http://127.0.0.1:9911", ws: true } } },
 })

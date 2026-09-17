@@ -36,18 +36,24 @@ for (const [code, entry] of countriesByCode) {
   )
 }
 
-// 50m 数据全集规模：掉了几十个国家说明数字码表或转换断了。
+// 110m 数据全集规模：掉了几十个国家说明数字码表或转换断了。
 assert.ok(countriesByCode.size >= 230, `应至少 230 国，实际 ${countriesByCode.size}`)
 
-// 边缘属地：50m 收录 SG/HK 等常见 VPS 落点（有轮廓）；个别更小的属地
-// （如 GF）无轮廓但必须有回退坐标，气泡不丢。
+// 换到 110m 档时最容易踩、又最难在图上发现的一处：那 9 个在 110m 有轮廓缺失、
+// 坐标表也没补的国家，气泡会连位置一起消失（海岸线变粗是预期的，气泡消失不是）。
+// 逐个钉住，条款见 geo.ts 坐标表末尾。
+for (const code of ["AG", "AW", "CW", "GD", "GS", "KM", "MF", "SX", "VC"] as const) {
+  assert.ok(countriesByCode.get(code), `${code} 有条目（110m 无轮廓，靠坐标表补）`)
+}
+
+// 边缘属地：常见 VPS 落点必须落得下来。110m 连 SG/HK 都不画，它们靠坐标表定位——
+// 所以这里钉的是「有条目」而不是「有轮廓」：气泡本来就只需要坐标。
 const sg = countriesByCode.get("SG")
 assert.ok(sg, "SG 有条目")
-assert.ok(sg!.feature, "SG 在 50m 数据中有轮廓")
-assert.ok(countriesByCode.get("HK")?.feature, "HK 在 50m 数据中有轮廓")
+assert.ok(countriesByCode.get("HK"), "HK 有条目")
 const gf = countriesByCode.get("GF")
 assert.ok(gf, "GF 有回退坐标条目")
-assert.ok(!gf!.feature, "GF 无轮廓（50m 未收录）")
+assert.ok(!gf!.feature, "GF 无轮廓（110m 未收录）")
 assert.ok(Math.abs(gf!.centroid[0] - 3.88) < 0.01 && Math.abs(gf!.centroid[1] + 53.06) < 0.01, "GF 坐标为手工回退值")
 
 console.log(`国家码表与轮廓中心正确（${countriesByCode.size} 国）`)

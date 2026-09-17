@@ -322,6 +322,11 @@ export function NodeDetail({ node }: { node: Node }) {
         />
       </dl>
 
+      {/* 这一行依赖 hub 侧的约定，主题侧没有兜底：README「主题契约」写明匿名访问
+          /nodes 的响应不含 ip、hostname、remark，所以对匿名访客它渲染不出来。但
+          「备注不公开」是那条约定保证的，不是这里保证的——hub 哪天改成照发，运维
+          写在备注里的东西（实践中常是密码、内网地址）就直接印在公开页上了。待办：
+          主题拿到登录态后把这一行门禁到 me.authed（NodeDetail 目前不接该 prop）。 */}
       {node.remark && (
         <p className="rounded-md bg-muted px-3 py-2 text-sm whitespace-pre-wrap">{node.remark}</p>
       )}
