@@ -11,7 +11,7 @@ import { trafficFoot } from "@/lib/traffic"
 type Metric = "uptime" | "cpu" | "mem" | "disk" | "traffic" | "speed"
 
 const COLS: { key: Metric; label: string }[] = [
-  { key: "uptime", label: "uptime" },
+  { key: "uptime", label: "在线时长" },
   { key: "cpu", label: "CPU" },
   { key: "mem", label: "内存" },
   { key: "disk", label: "硬盘" },
