@@ -8,7 +8,8 @@ description: 生成/更新 monitor-theme-gymin 的 preview.png 宣传预览图�
 最终产物是一张斜切宣传图：黑画布上内缩两张圆角截图，对角线（右上角→左下角）左上是
 **浅色主题的卡片视图**，右下是**深色主题的地图视图**。规格：
 
-- 画布 = 截图宽高 + 每边 30px 黑边（当前为 3038×1460，截图 2978×1400）
+- 画布 = 截图宽高 + 每边 30px 黑边（当前为 3038×1460，截图 2978×1400）；
+  产物为 256 色索引 PNG，约 112 KB
 - 截图：headless Chrome，视口 1489×700 CSS，deviceScaleFactor 2 → 2978×1400
 - 圆角半径 32px；分割线就是画布对角线 x(y) = W·(1−y/(H−1))（从旧 preview.png 拟合证实：
   斜率 −1.7020 = −2978/1750，即旧图本来就是角对角直线，无需再拟合）
@@ -52,6 +53,12 @@ preview.png 交给 judge agent 做视觉验收（浅色半：摘要卡数值/卡
   对卡片视图数折线点、对地图视图数 `[class*='map-bubble']`（US/DE/HK/SG/JP/GB 共 6 个）。
 - **合成是纯 Node PNG 编解码**（zlib 内置），无 Pillow/sharp 依赖。PNG 的 CRC 只覆盖
   chunk 的 type+data，不含长度前缀——写错过会得到 sips 都读不了的文件。
+- **产物是 256 色索引 PNG（colorType 3），不是真彩。** 2x 截图的文字+渐变作为 RGB 要
+  ~295 KB；同样的像素量化到 256 色只要 ~112 KB（PSNR 48 dB，肉眼无差）。逐行滤波在
+  这类高熵内容上只会更大（自适应滤波反而 ~322 KB），所以量化比调滤波器划算得多。
+  `--colors 0` 可退回真彩；`--colors N` 调调色板大小。
+- **量化不加抖动。** Floyd–Steinberg 会把误差摊成高频噪点，既更糊又更大（256 色抖动
+  实测 ~194 KB，PSNR 45 dB），UI 截图这种平坦区域本来也不会出现色带。
 - **mock 节点数据要过 `safeNodes`**（src/lib/api.ts）：所有 metrics 数值字段必须是有限
   数、country 必须是 ALPHA-2，否则节点被清成离线/未定位。显示值由 1024 进制的
   bytes()/pair()/percent() 格式化——造数时用 GiB/TiB 字面量（`2*1024**3`），别用十进制
