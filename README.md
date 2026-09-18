@@ -96,6 +96,11 @@ npm run build && npm run package-theme
 或 WAF，得把这个前缀放行**：从列表点进去只是 pushState，边缘看不见，刷新详情页才会真的请求
 `/node/{id}`，症状是「点进去正常，一刷新就被拦」。
 
+## 变更记录
+
+每个 tag 的改动汇总在 [CHANGELOG.md](CHANGELOG.md)，GitHub Release 页面同时
+附带 `theme.tar.gz` 与自动 notes：[releases](https://github.com/CarlJia/monitor-theme-gymin/releases)。
+
 ## 许可
 
 MIT
