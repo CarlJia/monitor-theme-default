@@ -40,9 +40,15 @@
   --ring: oklch(0.62 0 0);
   --chart-1: oklch(0.3 0 0);
   --chart-2: oklch(0.45 0 0);
-  --chart-3: oklch(0.58 0 0);
-  --chart-4: oklch(0.7 0 0);
-  --chart-5: oklch(0.82 0 0);
+  /* 探测曲线五色。色相绕开色带（良 142 / 警 70 / 差 30）和在线绿
+     (142) 的暖绿区，只在 195-325° 冷色圈 + 一个橄榄里取 5 个。
+     浅深两套明度按「浅色压暗、深色提亮」翻转，与现有 chart-N
+     同规律。色相本身是身份，故不要冗余虚线。 */
+  --probe-1: oklch(0.55 0.10 195);
+  --probe-2: oklch(0.55 0.10 240);
+  --probe-3: oklch(0.55 0.10 285);
+  --probe-4: oklch(0.55 0.10 325);
+  --probe-5: oklch(0.55 0.10 90);
   /* Greyscale has no red or amber, so severity is carried by weight: the bar
      darkens as it fills. */
   --ok: oklch(0.62 0 0);
@@ -90,9 +96,11 @@
   --ring: oklch(0.55 0 0);
   --chart-1: oklch(0.95 0 0);
   --chart-2: oklch(0.82 0 0);
-  --chart-3: oklch(0.68 0 0);
-  --chart-4: oklch(0.54 0 0);
-  --chart-5: oklch(0.42 0 0);
+  --probe-1: oklch(0.72 0.10 195);
+  --probe-2: oklch(0.72 0.10 240);
+  --probe-3: oklch(0.72 0.10 285);
+  --probe-4: oklch(0.72 0.10 325);
+  --probe-5: oklch(0.72 0.10 90);
   /* Inverted against the dark ground: the fuller the bar, the brighter. */
   --ok: oklch(0.62 0 0);
   --warn: oklch(0.79 0 0);
@@ -140,9 +148,11 @@
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
+  --color-probe-1: var(--probe-1);
+  --color-probe-2: var(--probe-2);
+  --color-probe-3: var(--probe-3);
+  --color-probe-4: var(--probe-4);
+  --color-probe-5: var(--probe-5);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-online: var(--online);

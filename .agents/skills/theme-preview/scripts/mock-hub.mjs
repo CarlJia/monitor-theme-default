@@ -1,5 +1,6 @@
-// Mock hub for preview generation: serves dist/, /api/me, /api/nodes and a
-// WebSocket /api/ws that pushes frames so the summary sparkline builds history.
+// Mock hub for preview generation: serves dist/, /api/me, /api/nodes,
+// /api/nodes/{id}/metrics and a WebSocket /api/ws that pushes frames so the
+// summary sparkline builds history.
 //
 //   node mock-hub.mjs [--dist ./dist] [--port 9911] [--site "Mock Monitor"]
 //
@@ -151,6 +152,108 @@ function frame(n) {
   }
 }
 
+// --- detail-page history (/api/nodes/{id}/metrics) -------------------------
+// The hub builds these from stored samples; here they are synthesised from a
+// per-node baseline. `nz` is a hash rather than Math.random on purpose, so
+// re-fetching the same window redraws the same line instead of reshuffling it
+// every few seconds.
+const HOURS_CAP = 168 // what the hub allows an anonymous caller
+const METRIC_STEP = 60 // the hub's base bucket, in seconds
+const PROBE_IDS = [11, 12, 13, 14, 15]
+const PROBE_NAMES = { 11: "电信 上海", 12: "联通 北京", 13: "移动 广州", 14: "CN2 GIA", 15: "阿里云 香港" }
+// 丢包的那个探测：窗口整体的比例，以及它偶尔丢包时一个桶长什么样。
+// 其余探测不丢包，也按契约不出现在 `loss` 里。
+const PROBE_LOSS = { 13: { window: 1.8, buckets: [2, 6] } }
+
+// cpu %、mem/disk 字节、rx/tx B/s，以及五个探测各自的往返毫秒。
+const HIST = {
+  1: { cpu: 22, mem: 0.82 * GiB, disk: 12.0 * GiB, rx: 2.2 * K * K, tx: 390 * K, rtt: [176, 198, 231, 158, 212] },
+  2: { cpu: 39, mem: 0.74 * GiB, disk: 11.4 * GiB, rx: 2.0 * K * K, tx: 356 * K, rtt: [182, 191, 224, 165, 208] },
+  3: { cpu: 18, mem: 0.88 * GiB, disk: 13.1 * GiB, rx: 2.5 * K * K, tx: 512 * K, rtt: [188, 205, 240, 172, 226] },
+  4: { cpu: 9, mem: 0.41 * GiB, disk: 10.0 * GiB, rx: 96 * K, tx: 42 * K, rtt: [201, 214, 248, 186, 235] },
+  5: { cpu: 96, mem: 1.24 * GiB, disk: 24.0 * GiB, rx: 2.6 * K * K, tx: 410 * K, rtt: [42, 55, 38, 31, 68] },
+  6: { cpu: 6, mem: 0.35 * GiB, disk: 9.0 * GiB, rx: 64 * K, tx: 28 * K, rtt: [58, 71, 52, 46, 84] },
+  7: { cpu: 12, mem: 0.61 * GiB, disk: 8.0 * GiB, rx: 1.5 * K * K, tx: 256 * K, rtt: [68, 82, 61, 55, 96] },
+}
+
+const nz = (n) => {
+  const x = Math.sin(n * 12.9898) * 43758.5453
+  return x - Math.floor(x)
+}
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
+const round1 = (v) => Math.round(v * 10) / 10
+
+/**
+ * The hub's `sample_step`: 60s buckets, thinned until the window holds no more
+ * than `points` of them. Mirrors the only property the theme depends on -- a
+ * larger `points` never gives a denser chart.
+ */
+function history(node, hours, points, series) {
+  const h = HIST[node.id]
+  const step = Math.max(METRIC_STEP, Math.ceil((hours * 3600) / points / METRIC_STEP) * METRIC_STEP)
+  // Stamped with the bucket's own start, as the hub stamps samples. An offline
+  // node's history stops where its agent did, which is what leaves the
+  // right-hand gap on its charts.
+  const now = Math.floor(Date.now() / 1000 / step) * step
+  const last = node.online ? now : Math.floor(node.last_seen / step) * step
+  const from = now - hours * 3600 + step
+  const count = Math.max(0, Math.floor((last - from) / step) + 1)
+  const metrics = []
+  const ping = []
+  for (let i = 0; i < count; i++) {
+    const ts = from + i * step
+    const t = ts / 3600 // hours since the epoch; every wave phase rides on it
+    // Disk only fills, so its growth is the window's own progress rather than a
+    // wave that would have to be clipped at the top to stay monotonic.
+    const grow = count > 1 ? i / (count - 1) : 1
+    if (series !== "ping") {
+      const wave = (period, phase) => Math.sin((t / period) * Math.PI * 2 + phase + node.id)
+      metrics.push({
+        ts,
+        cpu: round1(clamp(h.cpu * (1 + 0.4 * wave(5.4, 0.1) + 0.3 * (nz(ts + node.id * 7) - 0.5)), 0, 100)),
+        mem_used: Math.round(clamp(h.mem * (1 + 0.06 * wave(19, 0.4) + 0.04 * (nz(ts + node.id * 13) - 0.5)), 0, node.mem_total)),
+        disk_used: Math.round(h.disk * (0.965 + 0.035 * grow + 0.006 * (nz(ts + node.id * 17) - 0.5))),
+        net_rx: Math.round(Math.max(0, h.rx * (1 + 0.55 * wave(3.1, 0.7) + 0.5 * (nz(ts + node.id * 19) - 0.5)))),
+        net_tx: Math.round(Math.max(0, h.tx * (1 + 0.55 * wave(2.6, 0.2) + 0.5 * (nz(ts + node.id * 23) - 0.5)))),
+      })
+    }
+    // Probes only report while the agent does; an offline node keeps its
+    // resource history and loses its latency one. All five share the bucket the
+    // hub stamped them with, so a window of them is `count` rows, not five.
+    if (series !== "metrics" && node.online) {
+      for (const [k, task_id] of PROBE_IDS.entries()) {
+        // Roughly one bucket in eighty answers nothing: the hub stores that as
+        // -1, and it is what the chart has to draw across.
+        if (nz(ts * 1.7 + task_id * 31) < 0.012) {
+          ping.push({ task_id, ts, latency: -1 })
+          continue
+        }
+        const latency = clamp(h.rtt[k] * (1 + 0.18 * Math.sin((t / 2.3) * Math.PI * 2 + k * 0.9)
+          + 0.14 * (nz(ts * 3 + k * 41) - 0.5)), 1, 999)
+        const spread = latency * (0.06 + 0.05 * nz(ts * 5 + task_id))
+        const point = {
+          task_id,
+          ts,
+          latency: round1(latency),
+          band: [round1(latency - spread), round1(latency + spread)],
+        }
+        const loss = PROBE_LOSS[task_id]
+        if (loss && nz(ts / step + task_id * 7) < 0.12) {
+          point.loss = round1(loss.buckets[0] + (loss.buckets[1] - loss.buckets[0]) * nz(ts + task_id * 3))
+        }
+        ping.push(point)
+      }
+    }
+  }
+  // `series` halves the response: the half nobody asked for is a third to two
+  // thirds of every payload, exactly as the hub has it.
+  if (series === "metrics") return { metrics, ping: [], probes: {}, loss: {} }
+  const loss = {}
+  for (const [id, l] of Object.entries(PROBE_LOSS)) loss[id] = l.window
+  if (series === "ping") return { metrics: [], ping, probes: PROBE_NAMES, loss }
+  return { metrics, ping, probes: PROBE_NAMES, loss }
+}
+
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -190,8 +293,35 @@ location.replace("/?preview=1");
     return
   }
   if (url.pathname === "/api/nodes/quality") {
+    // The band's window is the hub's fixed one hour at a minute a bucket, drawn
+    // for every node that is reporting. An offline node has no probes running,
+    // so it contributes nothing rather than an hour of blanks.
     res.setHeader("content-type", "application/json")
-    res.end("{}")
+    const batch = {}
+    for (const n of nodes) {
+      if (!n.online) continue
+      const { ping, probes, loss } = history(n, 1, 60, "ping")
+      batch[n.id] = { ping, probes, loss }
+    }
+    res.end(JSON.stringify(batch))
+    return
+  }
+  const detail = /^\/api\/nodes\/(\d+)\/metrics$/.exec(url.pathname)
+  if (detail) {
+    const node = nodes.find((n) => n.id === Number(detail[1]))
+    res.setHeader("content-type", "application/json")
+    if (!node) {
+      res.statusCode = 404
+      res.end("{}")
+      return
+    }
+    // The three query parameters are all optional and all silently clamped, per
+    // the theme contract: `hours` to what an anonymous caller gets, `points` to
+    // a sane request, and an unknown `series` to both halves.
+    const hours = clamp(Number(url.searchParams.get("hours")) || 24, 1, HOURS_CAP)
+    const points = clamp(Number(url.searchParams.get("points")) || 240, 10, 5000)
+    const series = url.searchParams.get("series") ?? ""
+    res.end(JSON.stringify(history(node, hours, points, series)))
     return
   }
   if (url.pathname.startsWith("/api/")) {

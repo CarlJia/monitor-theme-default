@@ -216,3 +216,37 @@ const LADDER: Record<number, number[]> = {
 export function quarters(top: number): number[] {
   return [0, 0.25, 0.5, 0.75, 1].map((f) => top * f)
 }
+
+/** 延迟图纵轴每格代表的毫秒数。常见探针（Smokeping 一类）用的也是这个步长。 */
+const LATENCY_STEP = 40
+
+/** 一屏至多几段。再密，一格窄得和刻度文字差不多。 */
+const LATENCY_SPANS = 6
+
+/**
+ * 延迟图的纵轴：40ms 一格。
+ *
+ * recharts 在 `domain={["auto","auto"]}` 下按数据自己的跨度铺线，于是一个在
+ * 180-220ms 之间摆动的节点，10ms 的抖动就跨掉四分之一画布，而同一个抖动落在
+ * 40ms 一格上只是四分之一格——「一格代表多少毫秒」随节点而变，抖动也就跟着
+ * 被放大或缩小。这里把上下端各自向外取到步长的整数倍，纵轴因此不随数据跨度
+ * 伸缩：只在跨度超过 `LATENCY_SPANS` 格（240ms，够装下最常见的「国内探测 +
+ * 一个海外探测」）时按整数倍加粗成 80、120……，刻度始终落在 40 的倍数上。
+ *
+ * 起点不是 0，是数据下方最近的那一格：零基线会把这几十毫秒的波动压成一条直线。
+ * 数据本来就在 40ms 以内时起点恰好是 0，那是这条规则的结果而非另一条规则。
+ *
+ * `lo` 为负（`quality.ts` 的 `isTimeout` 用它标记超时）时按下限 0 处理，不能让它
+ * 把下端拖到 0 以下。
+ */
+export function latencyAxis(lo: number, hi: number): { domain: [number, number]; ticks: number[] } {
+  const min = Math.max(0, Number.isFinite(lo) ? lo : 0)
+  const max = Math.max(min, Number.isFinite(hi) ? hi : min)
+  const step = LATENCY_STEP * Math.max(1, Math.ceil((max - min) / LATENCY_STEP / LATENCY_SPANS))
+  const from = Math.floor(min / step) * step
+  // 常数序列（或空数据）时 `max === min`，`from` 与 `to` 会重合，轴就成了一条线。
+  const to = Math.max(Math.ceil(max / step) * step, from + step)
+  const ticks: number[] = []
+  for (let t = from; t <= to; t += step) ticks.push(t)
+  return { domain: [from, to], ticks }
+}

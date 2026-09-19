@@ -19,6 +19,11 @@ npm ci
 npm run dev
 ```
 
+手上没有 hub 时用 `npm run dev:mock`：它自己起一个合成数据的 mock hub（节点表、
+详情页的历史指标与延迟曲线都造好了），把 Vite 的 `/api` 代理指过去。hub 监听的是
+当场找到的空闲端口，所以 `npm run dev` 与它互不打扰，也不会接上另一个还没退出的
+旧 hub。
+
 构建产物位于 `dist/`。提交前运行 `npm run build && npm run lint && npm test`。
 
 `npm test` 校验数字格式化和实时指标的输入边界，以及组件的渲染结果。前者是

@@ -3,7 +3,7 @@
 // requires no runner, framework or dependency.
 //
 // Nothing imports it, so the bundle never includes it.
-import { axisBytes, axisTop, bytes, cpuName, daysUntil, osName, pair, quarters, timeTicks, uptime } from "./format.ts"
+import { axisBytes, axisTop, bytes, cpuName, daysUntil, latencyAxis, osName, pair, quarters, timeTicks, uptime } from "./format.ts"
 
 let failed = 0
 function eq(got: unknown, want: unknown, what: string) {
@@ -60,6 +60,16 @@ for (const max of [3_000, 300_000, 3_000_000, 300_000_000]) {
   // 上界为 2 而非 1.5：梯子移除半档后，最坏情况是下一档 2 的幂。
   eq(top / max < 2, true, `${max} B/s 的轴顶不能浪费整块面板`)
 }
+
+// latencyAxis: 40ms 一格，纵轴「一格代表多少毫秒」不随节点而变。跨度超过六格
+// 才按整数倍加粗，刻度因此始终落在 40 的倍数上。
+eq(latencyAxis(180, 220), { domain: [160, 240], ticks: [160, 200, 240] }, "180-220ms 的节点：每格 40ms")
+eq(latencyAxis(15, 25), { domain: [0, 40], ticks: [0, 40] }, "低延迟节点：下端恰好落回 0")
+eq(latencyAxis(20, 250), { domain: [0, 280], ticks: [0, 40, 80, 120, 160, 200, 240, 280] }, "国内 + 海外两路探测仍在 40ms")
+eq(latencyAxis(20, 500), { domain: [0, 560], ticks: [0, 80, 160, 240, 320, 400, 480, 560] }, "跨度 480ms 时按 80ms 加粗")
+eq(latencyAxis(100, 100), { domain: [80, 120], ticks: [80, 120] }, "一条常数线也要有一格高度")
+// 超时点是负值（quality.ts 的 isTimeout），下端不能被它拖到 0 以下。
+eq(latencyAxis(-1, -1), { domain: [0, 40], ticks: [0, 40] }, "全是超时标记时不出现负刻度")
 
 // timeTicks: round clock values, phased on local midnight rather than the epoch,
 // and never more than requested.

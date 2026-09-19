@@ -27,5 +27,10 @@ export default defineConfig({
   // 地图懒加载块内置 110m 国家轮廓（~105 KB 源数据）；只在首次切到地图视图
   // 时下载，且改成意图触发后不再进首屏。阈值仍留着，blocked 的是其他块。
   build: { chunkSizeWarningLimit: 1000 },
-  server: { proxy: { "/api": { target: "http://127.0.0.1:9911", ws: true } } },
+  // HUB_URL 是 `npm run dev:mock` 给的：它自己起一个 mock hub 并把这里指过去，
+  // 用的是当场找到的空闲端口，所以本地调试不会被另一个还占着 9911 的旧 hub
+  // 静默接管。不带这个变量时仍是 README 里那个固定端口。
+  server: {
+    proxy: { "/api": { target: process.env.HUB_URL ?? "http://127.0.0.1:9911", ws: true } },
+  },
 })

@@ -11,9 +11,9 @@ import { Country, Status } from "@/components/NodeCard"
 import { OsIcon } from "@/components/OsIcon"
 import { api, type Node } from "@/lib/api"
 import {
-  axisBytes, axisTop, bytes, clockFor, quarters, cpuName, CYCLES, FOREVER, money, osName, rate, timeTicks,
+  axisBytes, axisTop, bytes, clockFor, latencyAxis, quarters, cpuName, CYCLES, FOREVER, money, osName, rate, timeTicks,
 } from "@/lib/format"
-import { groupByProbe, lossText, type Loss, type PingPoint, type Probes } from "@/lib/quality"
+import { groupByProbe, isTimeout, lossText, type Loss, type PingPoint, type Probes } from "@/lib/quality"
 
 type Point = {
   ts: number
@@ -43,24 +43,23 @@ const AXIS = { stroke: "currentColor", fontSize: 11, tickLine: false, axisLine: 
 // chart across seven hundred points per probe.
 const SERIES = { dot: false as const, strokeWidth: 1.5, isAnimationActive: false }
 
+// 资源标签页用 SERIES（1.5px）；延迟图与小条图例对齐到 2px。
+const SERIES_LATENCY = { dot: false as const, strokeWidth: 2, isAnimationActive: false }
+
 // One width for every stacked panel's value axis. Sized to their own labels --
 // 40px under "100%", 68px under "172 MB" -- the four plot areas would be offset by
 // 28px, placing a CPU spike and the network spike that caused it at different x.
 const Y_WIDTH = 68
 
-// The palette is greyscale, so lightness alone is exhausted after two or three
-// series and the dash pattern carries the rest.
-// ponytail: the dash period is shorter than the jitter once every ping in the
-// window is on the chart, so at the day range a dotted line and a dashed one both
-// read as texture and only lightness separates them. A muted colour palette was
-// built and measured but not adopted; restoring it means five oklch pairs and
-// dropping `dash`.
+// 五个探测要五种分法。灰阶只能分两到三档（最亮的两档在白底上糊），
+// 加上虚线周期短于抖动，虚线读成纹理。色带那套低彩度方案测过没上，
+// 这次把折线图也搬过来——五个 oklch 对，虚线不要了。
 const PALETTE = [
-  { stroke: "var(--color-chart-1)", dash: undefined },
-  { stroke: "var(--color-chart-3)", dash: "6 3" },
-  { stroke: "var(--color-chart-2)", dash: "2 3" },
-  { stroke: "var(--color-chart-4)", dash: "10 4 2 4" },
-  { stroke: "var(--color-chart-5)", dash: "1 4" },
+  { stroke: "var(--color-probe-1)" },
+  { stroke: "var(--color-probe-2)" },
+  { stroke: "var(--color-probe-3)" },
+  { stroke: "var(--color-probe-4)" },
+  { stroke: "var(--color-probe-5)" },
 ]
 
 const TABS = [
@@ -168,15 +167,13 @@ export function NodeDetail({ node }: { node: Node }) {
     setZoom(null)
     // oxlint-disable-next-line react/set-state-in-effect
     setFailed("")
-    // What this screen can resolve, in device pixels, which is the unit the line
-    // is drawn in: a 1280-wide retina panel has 2560 of them for a day of minutes.
-    // Read here rather than from a ref, since the hub only thins further, an
-    // approximate figure suffices, and the viewport is known before layout. A
-    // rotation keeps whatever it fetched with.
-    //
-    // The tab determines which half is requested; the other accounted for a third
-    // to two thirds of every response and was never drawn.
-    const points = Math.round(globalThis.innerWidth * (globalThis.devicePixelRatio || 1))
+    // Hub's `sample_step` 把 `hours` 切到 ≤ `points` 个桶内再取中位数
+    // （db.rs:1748 「Median rather than mean」），所以传一个固定上限就同时
+    // 把密度与振幅都压下来：24h 默认 60s 步进（1440 点），改 240 后
+    // hub 自聚合到 360s 步进——6 分钟级的中位，比原来 1 分钟级读得稳。
+    // 视口宽窄不应该让图变密：高 DPR 屏反而最该减，1 分钟级在那里纯粹
+    // 是把分钟抖动全画成一片锯齿。
+    const points = 240
     const series = tab === "latency" ? "ping" : "metrics"
     api<{ metrics: Point[]; ping: PingPoint[]; probes: Probes; loss?: Loss }>(
       `/nodes/${node.id}/metrics?hours=${hours}&points=${points}&series=${series}`,
@@ -229,6 +226,23 @@ export function NodeDetail({ node }: { node: Node }) {
   // Keyed on the full list, so a line keeps its shade when others are hidden.
   const style = (id: number) => PALETTE[pingSeries.findIndex((p) => p.id === id) % PALETTE.length]
 
+  // 纵轴只按屏幕上画着的东西定：藏起一个慢探测的用意就是让剩下的重新占满画布。
+  // 超时不是读数（isTimeout），band 只随单个探测绘制（见 <Area> 上方那段）——把
+  // 没画的算进来，等于让它们在背后拖着轴。
+  const yLatency = useMemo(() => {
+    const drawn: number[] = []
+    for (const s of shownProbes) {
+      for (const p of s.points) if (!isTimeout(p.latency)) drawn.push(p.latency as number)
+      if (shownProbes.length === 1) {
+        for (const p of s.points) if (p.band) drawn.push(p.band[0], p.band[1])
+      }
+    }
+    return latencyAxis(
+      drawn.length ? Math.min(...drawn) : 0,
+      drawn.length ? Math.max(...drawn) : 0,
+    )
+  }, [shownProbes])
+
   // The hub stamps every sample with its bucket rather than the second the probe
   // finished, so probes reporting at the bucket's rate share rows instead of each
   // contributing its own: a day of four probes is 717 rows rather than 2,868. A
@@ -246,8 +260,13 @@ export function NodeDetail({ node }: { node: Node }) {
       { ts: number } & Record<string, number | [number, number] | null>
     >()
     for (const s of pingSeries) {
-      const smoothed = despike(s.points)
-      s.points.forEach((p, i) => {
+      // 超时是缺口，不是读数。hub 把它存成 -1（`isTimeout` 认的两种标记之一），画上去
+      // 却是一条钻到 0 以下的尖线，而且 recharts 会为超范围的它扩域——纵轴那 40ms
+      // 一格会被挤到面板顶端。归一成 null，让 `connectNulls` 跨过；despike 本来就
+      // 只认 null 这一种缺口，归一后它的窗口才真的把超时排除在外。
+      const points = s.points.map((p) => (isTimeout(p.latency) ? { ...p, latency: null } : p))
+      const smoothed = despike(points)
+      points.forEach((p, i) => {
         const row = rows.get(p.ts) ?? { ts: p.ts * 1_000 }
         row[`t${s.id}`] = p.latency
         row[`s${s.id}`] = smoothed[i].latency
@@ -410,9 +429,9 @@ export function NodeDetail({ node }: { node: Node }) {
                         Math.min(zoom?.[1] ?? pingRows.length - 1, pingRows.length - 1),
                       )}
                     />
-                    {/* Not anchored at zero: these lines live in a narrow band
-                        far from it, and zero flattens every wobble. */}
-                    <YAxis unit="ms" width={52} domain={["auto", "auto"]} {...AXIS} />
+                    {/* 固定 40ms 一格（见 latencyAxis），不是 recharts 那种按数据跨度
+                        自动铺线——那样一条 10ms 的抖动会占掉四分之一画布。 */}
+                    <YAxis unit="ms" width={52} domain={yLatency.domain} ticks={yLatency.ticks} {...AXIS} />
                     <Tooltip
                       labelFormatter={(ts) => new Date(Number(ts)).toLocaleString("zh-CN")}
                       // The line is drawn from what answered, so without this a
@@ -453,8 +472,7 @@ export function NodeDetail({ node }: { node: Node }) {
                         dataKey={`${smooth ? "s" : "t"}${s.id}`}
                         name={s.name}
                         stroke={style(s.id).stroke}
-                        strokeDasharray={style(s.id).dash}
-                        {...SERIES}
+                        {...SERIES_LATENCY}
                         connectNulls
                       />
                     ))}
@@ -491,7 +509,7 @@ export function NodeDetail({ node }: { node: Node }) {
                       shown ? "" : "opacity-40"
                     }`}
                   >
-                    {/* The swatch carries the same shade and dash as the line. */}
+                    {/* The swatch carries the same shade as the line. */}
                     <svg width="14" height="6" className="shrink-0" aria-hidden>
                       <line
                         x1="0"
@@ -499,7 +517,6 @@ export function NodeDetail({ node }: { node: Node }) {
                         x2="14"
                         y2="3"
                         stroke={style(s.id).stroke}
-                        strokeDasharray={style(s.id).dash}
                         strokeWidth="2"
                       />
                     </svg>
